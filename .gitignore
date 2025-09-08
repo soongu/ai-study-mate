@@ -1,0 +1,12 @@
+.idea/
+.vscode/
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+.DS_Store
+docs/
