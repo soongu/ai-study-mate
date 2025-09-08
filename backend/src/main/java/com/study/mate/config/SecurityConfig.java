@@ -53,9 +53,11 @@ public class SecurityConfig {
             // 엔드포인트 권한 정책: 퍼블릭 → 허용, 나머지 → 인증 필요
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers("/health", "/", "/h2-console/**").permitAll()
-                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/auth/**", "/oauth2/**", "/login/oauth2/**").permitAll()
                 .anyRequest().authenticated()
             )
+            // OAuth2 로그인 활성화(핸들러/서비스는 이후 커밋에서 추가)
+            .oauth2Login(oauth -> {})
             // 인증 실패 시 401 Unauthorized 반환
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((req, res, e) -> res.sendError(401))
