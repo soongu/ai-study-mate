@@ -7,14 +7,6 @@ spring:
 # 공통 설정
 jwt:
   secret: ${JWT_SECRET}
-  access-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION} 
-  refresh-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION} 
-
-# OAuth2 설정 (환경별로 다름)
-oauth2:
-  google:
-    client-id: ${GOOGLE_CLIENT_ID}
-    client-secret: ${GOOGLE_CLIENT_SECRET}
-  kakao:
-    client-id: ${KAKAO_CLIENT_ID}
-    client-secret: ${KAKAO_CLIENT_SECRET}
+  access-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION}
+  refresh-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION}
+# OAuth2, cookie 설정은 프로파일별 파일에서 관리

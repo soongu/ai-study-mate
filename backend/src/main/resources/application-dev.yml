@@ -27,3 +27,21 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     org.springframework.security: DEBUG
+
+oauth2:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}
+    client-secret: ${GOOGLE_CLIENT_SECRET}
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID}
+    client-secret: ${KAKAO_CLIENT_SECRET}
+
+cookie:
+  domain: localhost
+  secure: false
+  http-only: true
+  same-site: Lax
+  access-token-name: ACCESS_TOKEN
+  refresh-token-name: REFRESH_TOKEN
+  access-max-age: 900
+  refresh-max-age: 604800

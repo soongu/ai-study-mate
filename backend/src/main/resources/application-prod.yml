@@ -20,3 +20,21 @@ logging:
     com.study.mate: INFO
     org.springframework.web: WARN
     org.hibernate.SQL: WARN
+
+oauth2:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}
+    client-secret: ${GOOGLE_CLIENT_SECRET}
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID}
+    client-secret: ${KAKAO_CLIENT_SECRET}
+
+cookie:
+  domain: ${COOKIE_DOMAIN}
+  secure: true
+  http-only: true
+  same-site: None
+  access-token-name: ACCESS_TOKEN
+  refresh-token-name: REFRESH_TOKEN
+  access-max-age: 900
+  refresh-max-age: 604800
