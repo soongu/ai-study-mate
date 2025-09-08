@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -36,7 +37,7 @@ public class SecurityConfig {
      * - 예외: 인증 실패 시 401 반환
      */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
         http
             // 프론트엔드 개발 서버 및 지정된 오리진만 허용
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -58,7 +59,9 @@ public class SecurityConfig {
             // 인증 실패 시 401 Unauthorized 반환
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((req, res, e) -> res.sendError(401))
-            );
+            )
+            // UsernamePasswordAuthenticationFilter 전에 JWT 필터 동작
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
