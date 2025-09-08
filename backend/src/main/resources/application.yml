@@ -7,7 +7,8 @@ spring:
 # 공통 설정
 jwt:
   secret: ${JWT_SECRET}
-  expiration: 86400000 # 24시간
+  access-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION} 
+  refresh-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION} 
 
 # OAuth2 설정 (환경별로 다름)
 oauth2:
