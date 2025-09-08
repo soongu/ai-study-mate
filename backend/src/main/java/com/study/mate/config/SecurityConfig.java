@@ -11,6 +11,10 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.study.mate.service.CustomOAuth2UserService;
+
+import lombok.RequiredArgsConstructor;
+
 import java.util.Arrays;
 
 /**
@@ -23,7 +27,10 @@ import java.util.Arrays;
  */
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final CustomOAuth2UserService customOAuth2UserService;
 
     /**
      * HTTP 보안 체인 구성.
@@ -56,8 +63,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**", "/oauth2/**", "/login/oauth2/**").permitAll()
                 .anyRequest().authenticated()
             )
-            // OAuth2 로그인 활성화(핸들러/서비스는 이후 커밋에서 추가)
-            .oauth2Login(oauth -> {})
+            // OAuth2 로그인 활성화 및 사용자 정보 서비스 연결
+            .oauth2Login(oauth -> oauth.userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService)))
             // 인증 실패 시 401 Unauthorized 반환
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((req, res, e) -> res.sendError(401))
