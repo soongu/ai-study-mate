@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import apiClient from '../services/apiClient';
-import { getOAuthUrl } from '../utils/auth';
+import { AuthService } from '../services/authService';
 
 /**
  * Auth Store (Zustand + persist)
@@ -16,7 +15,6 @@ import { getOAuthUrl } from '../utils/auth';
  * - loading, error는 순간 상태이므로 저장하지 않습니다.
  *
  * 사용 패턴
- * - 로그인 버튼: loginWithProvider('google' | 'kakao') → 서버 OAuth2로 이동
  * - 앱 최초 진입: fetchMe() 호출로 쿠키 기반 인증 확인
  * - 로그아웃: logout() 호출 → 서버 쿠키 삭제 + 클라이언트 상태 초기화
  */
@@ -42,7 +40,6 @@ const initialState = {
  * - clear(): 스토어 전체 초기화
  * - fetchMe(): 쿠키 기반 현재 사용자 조회
  * - logout(): 서버 로그아웃 요청 후 상태 초기화
- * - loginWithProvider(provider): OAuth2 인증 페이지로 이동
  */
 export const useAuthStore = create(
   persist(
@@ -68,7 +65,7 @@ export const useAuthStore = create(
       fetchMe: async () => {
         set({ loading: true, error: null });
         try {
-          const res = await apiClient.get('/users/me');
+          const res = await AuthService.me();
           if (res?.data?.success) {
             set({ user: res.data.data, isAuthenticated: true });
           } else {
@@ -87,20 +84,12 @@ export const useAuthStore = create(
        */
       logout: async () => {
         try {
-          await apiClient.post('/auth/logout');
+          await AuthService.logout();
         } catch (_) {
           // ignore
         } finally {
           set({ ...initialState });
         }
-      },
-
-      /**
-       * 소셜 로그인 프로바이더로 이동합니다.
-       * @param {'google'|'kakao'} provider
-       */
-      loginWithProvider: (provider) => {
-        window.location.href = getOAuthUrl(provider);
       },
     }),
     {
