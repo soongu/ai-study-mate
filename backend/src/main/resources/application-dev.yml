@@ -61,5 +61,5 @@ cookie:
   access-max-age: 900
   refresh-max-age: 604800
 app:
-  oauth2-success-redirect-url: http://localhost:3000
-  oauth2-failure-redirect-url: http://localhost:3000/login?from=oauth2
+  oauth2-success-redirect-url: http://localhost:3000/app
+  oauth2-failure-redirect-url: http://localhost:3000?from=oauth2
