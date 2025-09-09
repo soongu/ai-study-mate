@@ -11,7 +11,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MariaDBDialect
-  
+
   security:
     oauth2:
       client:
@@ -44,7 +44,6 @@ logging:
     org.springframework.web: WARN
     org.hibernate.SQL: WARN
 
-
 cookie:
   domain: ${COOKIE_DOMAIN}
   secure: true
@@ -54,3 +53,5 @@ cookie:
   refresh-token-name: REFRESH_TOKEN
   access-max-age: 900
   refresh-max-age: 604800
+app:
+  oauth2-success-redirect-url: ${APP_OAUTH2_SUCCESS_REDIRECT_URL}

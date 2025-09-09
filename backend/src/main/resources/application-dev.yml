@@ -16,7 +16,7 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.H2Dialect
-  
+
   security:
     oauth2:
       client:
@@ -51,7 +51,6 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     org.springframework.security: DEBUG
 
-
 cookie:
   domain: localhost
   secure: false
@@ -61,3 +60,5 @@ cookie:
   refresh-token-name: REFRESH_TOKEN
   access-max-age: 900
   refresh-max-age: 604800
+app:
+  oauth2-success-redirect-url: http://localhost:3000
