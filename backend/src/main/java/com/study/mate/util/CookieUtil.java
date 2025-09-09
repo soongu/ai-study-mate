@@ -1,5 +1,7 @@
 package com.study.mate.util;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseCookie;
@@ -44,6 +46,37 @@ public class CookieUtil {
 
     public void deleteRefreshTokenCookie(HttpServletResponse response) {
         deleteCookie(response, props.getRefreshTokenName());
+    }
+
+    /**
+     * 요청에서 지정한 이름의 쿠키 값을 조회합니다.
+     * @param request 요청
+     * @param name 쿠키 이름
+     * @return 값(없으면 null)
+     */
+    public String readCookie(HttpServletRequest request, String name) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) return null;
+        for (Cookie cookie : cookies) {
+            if (name.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 요청에서 Access Token 쿠키 값을 조회합니다.
+     */
+    public String readAccessToken(HttpServletRequest request) {
+        return readCookie(request, props.getAccessTokenName());
+    }
+
+    /**
+     * 요청에서 Refresh Token 쿠키 값을 조회합니다.
+     */
+    public String readRefreshToken(HttpServletRequest request) {
+        return readCookie(request, props.getRefreshTokenName());
     }
 
     /**
