@@ -32,6 +32,7 @@ public class SecurityConfig {
 
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2FailureHandler oAuth2FailureHandler;
 
     /**
      * HTTP 보안 체인 구성.
@@ -64,10 +65,11 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**", "/oauth2/**", "/login/oauth2/**").permitAll()
                 .anyRequest().authenticated()
             )
-            // OAuth2 로그인 활성화 및 사용자 정보 서비스/성공 핸들러 연결
+            // OAuth2 로그인 활성화 및 사용자 정보 서비스/성공/실패 핸들러 연결
             .oauth2Login(oauth -> oauth
                 .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
                 .successHandler(oAuth2SuccessHandler)
+                .failureHandler(oAuth2FailureHandler)
             )
             // 인증 실패 시 401 Unauthorized 반환
             .exceptionHandling(ex -> ex

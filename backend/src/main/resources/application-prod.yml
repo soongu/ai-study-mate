@@ -55,3 +55,4 @@ cookie:
   refresh-max-age: 604800
 app:
   oauth2-success-redirect-url: ${APP_OAUTH2_SUCCESS_REDIRECT_URL}
+  oauth2-failure-redirect-url: ${APP_OAUTH2_FAILURE_REDIRECT_URL}
