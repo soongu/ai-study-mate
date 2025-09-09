@@ -4,6 +4,7 @@ import App from './App.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import AppLayout from './layouts/AppLayout.jsx';
 import { loginLoader } from './loaders/authLoaders.js';
+import PrivateRoute from './components/PrivateRoute.jsx';
 
 export const router = createBrowserRouter([
   {
@@ -13,7 +14,11 @@ export const router = createBrowserRouter([
   },
   {
     path: '/app',
-    element: <AppLayout />,
+    element: (
+      <PrivateRoute>
+        <AppLayout />
+      </PrivateRoute>
+    ),
     children: [{ index: true, element: <App /> }],
   },
 ]);

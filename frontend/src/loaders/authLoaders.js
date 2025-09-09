@@ -1,14 +1,14 @@
 import { redirect } from 'react-router-dom';
-import apiClient from '../services/apiClient';
+import { useAuthStore } from '../stores/authStore';
 
+// 첫 진입에서 불필요한 서버 호출을 피하기 위해
+// 스토어에 저장된 인증 여부만 보고 분기합니다.
+// - isAuthenticated === true 이면 바로 /app 으로 이동
+// - 아니면 로그인 페이지 그대로 렌더 (서버 요청 없음)
 export const loginLoader = async () => {
-  try {
-    const res = await apiClient.get('/users/me');
-    if (res?.data?.success) {
-      return redirect('/app');
-    }
-  } catch (_) {
-    // 미인증이면 그대로 진행
+  const { isAuthenticated } = useAuthStore.getState();
+  if (isAuthenticated) {
+    return redirect('/app');
   }
   return null;
 };

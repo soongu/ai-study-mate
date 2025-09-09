@@ -24,6 +24,7 @@ const initialState = {
   isAuthenticated: false,
   loading: false,
   error: null,
+  hasCheckedAuth: false, // /users/me 체크를 최소 한 번 수행했는지
 };
 
 /**
@@ -34,6 +35,7 @@ const initialState = {
  * - isAuthenticated: 인증 여부
  * - loading: 서버 통신 중 여부
  * - error: 최근 에러 메시지(간단 표기)
+ * - hasCheckedAuth: /users/me 체크를 최소 한 번 수행했는지
  *
  * 액션
  * - setUser(user): 사용자/인증여부 설정
@@ -55,7 +57,7 @@ export const useAuthStore = create(
       /**
        * 모든 상태를 초기 상태로 되돌립니다.
        */
-      clear: () => set({ ...initialState }),
+      clear: () => set({ ...initialState, hasCheckedAuth: true }),
 
       /**
        * 현재 사용자 정보를 조회합니다.
@@ -74,7 +76,7 @@ export const useAuthStore = create(
         } catch (e) {
           set({ user: null, isAuthenticated: false, error: 'unauthenticated' });
         } finally {
-          set({ loading: false });
+          set({ loading: false, hasCheckedAuth: true });
         }
       },
 
@@ -88,7 +90,7 @@ export const useAuthStore = create(
         } catch (_) {
           // ignore
         } finally {
-          set({ ...initialState });
+          set({ ...initialState, hasCheckedAuth: true });
         }
       },
     }),

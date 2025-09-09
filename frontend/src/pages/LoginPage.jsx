@@ -1,6 +1,14 @@
 import React from 'react';
 import { getOAuthUrl } from '../utils/auth';
 
+const setJustLoggedInFlag = () => {
+  try {
+    sessionStorage.setItem('justLoggedIn', '1');
+  } catch {
+    // ignore storage errors
+  }
+};
+
 const LoginPage = () => {
   return (
     <div
@@ -25,6 +33,7 @@ const LoginPage = () => {
           <div className='space-y-3'>
             <a
               href={getOAuthUrl('google')}
+              onClick={setJustLoggedInFlag}
               className='w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-lg border border-gray-200/70 bg-white/70 hover:bg-white transition-colors'>
               <img
                 src='https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg'
@@ -36,6 +45,7 @@ const LoginPage = () => {
 
             <a
               href={getOAuthUrl('kakao')}
+              onClick={setJustLoggedInFlag}
               className='w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-lg'
               style={{ backgroundColor: '#FEE500' }}>
               <img
