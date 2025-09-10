@@ -57,7 +57,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             // OAuth2 로그인 활성화(핸들러/서비스는 이후 커밋에서 추가)
-            .oauth2Login(oauth -> {})
+//            .oauth2Login(oauth -> {})
             // 인증 실패 시 401 Unauthorized 반환
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((req, res, e) -> res.sendError(401))
