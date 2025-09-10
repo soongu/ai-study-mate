@@ -128,8 +128,8 @@ public class StudyRoomService {
                 .status(ParticipantStatus.ONLINE)
                 .build();
         roomParticipantRepository.save(participation);
-
-        return JoinLeaveResponse.of(room.getId(), user.getId(), "join");
+        long afterCount = roomParticipantRepository.countByRoomId(room.getId());
+        return JoinLeaveResponse.of(room.getId(), user.getId(), "join", afterCount);
     }
 
     /**
@@ -149,8 +149,8 @@ public class StudyRoomService {
         }
 
         roomParticipantRepository.delete(participation);
-
-        return JoinLeaveResponse.of(room.getId(), user.getId(), "leave");
+        long afterCount = roomParticipantRepository.countByRoomId(room.getId());
+        return JoinLeaveResponse.of(room.getId(), user.getId(), "leave", afterCount);
     }
 }
 

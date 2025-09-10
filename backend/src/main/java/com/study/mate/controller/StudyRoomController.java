@@ -81,6 +81,10 @@ public class StudyRoomController {
     @PostMapping("/{id}/join")
     public ApiResponse<JoinLeaveResponse> join(@PathVariable Long id, @Valid @RequestBody JoinRoomRequest request) {
         log.info("[RoomJoin] pathId={}, body.roomId={}, userId={}", id, request.roomId(), request.userId());
+        if (!id.equals(request.roomId())) {
+            log.warn("[RoomJoin] Path roomId and body roomId mismatch: {} vs {}", id, request.roomId());
+            return ApiResponse.error("roomId mismatch");
+        }
         return ApiResponse.ok(studyRoomService.joinRoom(request));
     }
 
@@ -94,6 +98,10 @@ public class StudyRoomController {
     @DeleteMapping("/{id}/leave")
     public ApiResponse<JoinLeaveResponse> leave(@PathVariable Long id, @Valid @RequestBody LeaveRoomRequest request) {
         log.info("[RoomLeave] pathId={}, body.roomId={}, userId={}", id, request.roomId(), request.userId());
+        if (!id.equals(request.roomId())) {
+            log.warn("[RoomLeave] Path roomId and body roomId mismatch: {} vs {}", id, request.roomId());
+            return ApiResponse.error("roomId mismatch");
+        }
         return ApiResponse.ok(studyRoomService.leaveRoom(request));
     }
 }
