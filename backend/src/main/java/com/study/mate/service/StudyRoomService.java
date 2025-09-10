@@ -11,6 +11,7 @@ import com.study.mate.dto.request.LeaveRoomRequest;
 import com.study.mate.dto.response.StudyRoomResponse;
 import com.study.mate.dto.response.JoinLeaveResponse;
 import com.study.mate.dto.response.StudyRoomListItemResponse;
+import com.study.mate.dto.response.RoomParticipantResponse;
 import com.study.mate.dto.response.StudyRoomDetailResponse;
 import com.study.mate.exception.BusinessException;
 import com.study.mate.exception.ErrorCode;
@@ -21,6 +22,8 @@ import com.study.mate.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 import java.util.Optional;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -152,6 +155,21 @@ public class StudyRoomService {
         roomParticipantRepository.delete(participation);
         long afterCount = roomParticipantRepository.countByRoomId(room.getId());
         return JoinLeaveResponse.of(room.getId(), user.getId(), "leave", afterCount);
+    }
+
+    /**
+     * 특정 스터디룸의 참여자 목록을 조회합니다.
+     * - 역할/상태 포함하여 간단한 프로필 정보를 반환합니다.
+     */
+    @Transactional(readOnly = true)
+    public List<RoomParticipantResponse> listParticipants(Long roomId) {
+        // 방 존재 검증 (없으면 ROOM_NOT_FOUND)
+        studyRoomRepository.findById(roomId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+        return roomParticipantRepository.findByRoomId(roomId)
+                .stream()
+                .map(RoomParticipantResponse::from)
+                .collect(Collectors.toList());
     }
 }
 

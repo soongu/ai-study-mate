@@ -8,6 +8,7 @@ import com.study.mate.dto.response.JoinLeaveResponse;
 import com.study.mate.dto.response.StudyRoomDetailResponse;
 import com.study.mate.dto.response.StudyRoomListItemResponse;
 import com.study.mate.dto.response.StudyRoomResponse;
+import com.study.mate.dto.response.RoomParticipantResponse;
 import com.study.mate.service.StudyRoomService;
 import com.study.mate.service.UsersService;
 import jakarta.validation.Valid;
@@ -120,6 +121,15 @@ public class StudyRoomController {
         }
         var safeRequest = new LeaveRoomRequest(request.roomId(), me.getId());
         return ApiResponse.ok(studyRoomService.leaveRoom(safeRequest));
+    }
+
+    /**
+     * 스터디룸 참여자 목록 조회
+     * - 역할(Host/Participant) 및 상태(ONLINE/STUDYING/BREAK/OFFLINE)를 포함합니다.
+     */
+    @GetMapping("/{roomId}/participants")
+    public ApiResponse<java.util.List<RoomParticipantResponse>> participants(@PathVariable Long roomId) {
+        return ApiResponse.ok(studyRoomService.listParticipants(roomId));
     }
 }
 

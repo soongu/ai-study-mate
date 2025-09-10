@@ -58,7 +58,7 @@ cookie:
   same-site: Lax
   access-token-name: ACCESS_TOKEN
   refresh-token-name: REFRESH_TOKEN
-  access-max-age: 15
+  access-max-age: 900
   refresh-max-age: 604800
 app:
   oauth2-success-redirect-url: http://localhost:3000/app
