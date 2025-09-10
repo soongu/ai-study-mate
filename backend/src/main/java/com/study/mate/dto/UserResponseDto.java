@@ -13,6 +13,8 @@ public class UserResponseDto {
     private String nickname;
     private String profileImageUrl;
     private Provider provider;
+    private Long totalStudyTime; // 누적 학습 시간(분)
+    private Integer studyRoomCount; // 참여한 스터디룸 개수
 
     public static UserResponseDto from(User user) {
         return UserResponseDto.builder()
@@ -21,6 +23,8 @@ public class UserResponseDto {
                 .nickname(user.getNickname())
                 .profileImageUrl(user.getProfileImageUrl())
                 .provider(user.getProvider())
+                .totalStudyTime(user.getTotalStudyTime())
+                .studyRoomCount(user.getStudyRoomCount())
                 .build();
     }
 }

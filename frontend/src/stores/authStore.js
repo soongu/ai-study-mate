@@ -73,10 +73,28 @@ export const useAuthStore = create(
           } else {
             set({ user: null, isAuthenticated: false });
           }
-        } catch (e) {
+        } catch {
           set({ user: null, isAuthenticated: false, error: 'unauthenticated' });
         } finally {
           set({ loading: false, hasCheckedAuth: true });
+        }
+      },
+
+      /**
+       * 현재 사용자 정보를 조용히(background) 갱신합니다.
+       * - PrivateRoute의 로딩 게이트를 건드리지 않도록 loading/hasCheckedAuth를 변경하지 않습니다.
+       * - 대시보드 진입, 조인/리브/생성 성공 직후 숫자 동기화 등에 사용합니다.
+       */
+      refreshMeSilent: async () => {
+        try {
+          const res = await AuthService.me();
+          if (res?.data?.success) {
+            set({ user: res.data.data, isAuthenticated: true });
+          } else {
+            set({ user: null, isAuthenticated: false });
+          }
+        } catch {
+          // 조용히 실패 무시 (화면 끊김 방지)
         }
       },
 
@@ -87,7 +105,7 @@ export const useAuthStore = create(
       logout: async () => {
         try {
           await AuthService.logout();
-        } catch (_) {
+        } catch {
           // ignore
         } finally {
           set({ ...initialState, hasCheckedAuth: true });

@@ -4,6 +4,7 @@ import App from './App.jsx';
 import StudyRoomList from './pages/StudyRoomList.jsx';
 import RoomDetail from './pages/RoomDetail.jsx';
 import LoginPage from './pages/LoginPage.jsx';
+import Dashboard from './pages/Dashboard.jsx';
 import AppLayout from './layouts/AppLayout.jsx';
 import { loginLoader } from './loaders/authLoaders.js';
 import PrivateRoute from './components/auth/PrivateRoute.jsx';
@@ -22,7 +23,7 @@ export const router = createBrowserRouter([
       </PrivateRoute>
     ),
     children: [
-      { index: true, element: <App /> },
+      { index: true, element: <Dashboard /> },
       { path: 'rooms', element: <StudyRoomList /> },
       { path: 'rooms/:id', element: <RoomDetail /> },
     ],

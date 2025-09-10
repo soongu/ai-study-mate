@@ -43,6 +43,11 @@ public interface RoomParticipantRepository extends JpaRepository<RoomParticipant
      * @return 해당 스터디룸에 참여한 인원 수
      */
     long countByRoomId(Long roomId);
+
+    /**
+     * 특정 유저(userId)가 현재 참여 중인 스터디룸 수를 반환합니다.
+     */
+    long countByUserId(Long userId);
 }
 
 

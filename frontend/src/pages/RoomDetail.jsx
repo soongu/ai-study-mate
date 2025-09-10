@@ -36,6 +36,7 @@ const RoomDetail = () => {
   const setParticipants = useRoomStore((s) => s.setParticipants);
   // 현재 로그인 사용자(내 역할/버튼 조건 판별에 사용)
   const me = useAuthStore((s) => s.user);
+  const refreshMeSilent = useAuthStore((s) => s.refreshMeSilent);
 
   // 화면 상태
   // - loading: 초기 로딩/재조회 중 여부
@@ -109,6 +110,8 @@ const RoomDetail = () => {
       const list = await RoomService.getParticipants(roomId);
       setParticipants(roomId, list);
       showToast('방에 참여했어요.', { type: 'success' });
+      // 내 참여방 수 최신화(백그라운드)
+      refreshMeSilent();
     } catch (e) {
       const msg = e?.response?.data?.message || '참여에 실패했습니다.';
       showToast(msg, { type: 'error' });
@@ -130,6 +133,8 @@ const RoomDetail = () => {
       const list = await RoomService.getParticipants(roomId);
       setParticipants(roomId, list);
       showToast('방에서 나왔어요.', { type: 'success' });
+      // 내 참여방 수 최신화(백그라운드)
+      refreshMeSilent();
     } catch (e) {
       const msg = e?.response?.data?.message || '나가기에 실패했습니다.';
       showToast(msg, { type: 'error' });
