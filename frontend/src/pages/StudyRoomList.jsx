@@ -2,15 +2,15 @@
 // - 검색(실시간, 디바운싱) / 목록 / 더보기 / 방 생성 모달 / 토스트 안내
 // - 데이터 상태는 전역 store(zustand) 사용, 화면 상태는 로컬 state로 관리합니다.
 import React, { useEffect, useState } from 'react';
-import RoomCard from '../components/RoomCard.jsx';
-import RoomListSkeleton from '../components/RoomListSkeleton.jsx';
-import CreateRoomModal from '../components/CreateRoomModal.jsx';
+import RoomCard from '../components/room/RoomCard.jsx';
+import RoomListSkeleton from '../components/room/RoomListSkeleton.jsx';
+import CreateRoomModal from '../components/room/CreateRoomModal.jsx';
 import { RoomService } from '../services/roomService.js';
 import { useRoomStore } from '../stores/roomStore.js';
-import RoomSearchBar from '../components/RoomSearchBar.jsx';
-import RoomListGrid from '../components/RoomListGrid.jsx';
-import LoadMoreButton from '../components/LoadMoreButton.jsx';
-import { useToast } from '../components/toastContext.js';
+import RoomSearchBar from '../components/room/RoomSearchBar.jsx';
+import RoomListGrid from '../components/room/RoomListGrid.jsx';
+import LoadMoreButton from '../components/room/LoadMoreButton.jsx';
+import { useToast } from '../components/toast/toastContext.js';
 
 // 임시 데이터 (백엔드 연동 전)
 // 실제로는 백엔드의 GET /api/rooms 결과를 사용합니다.

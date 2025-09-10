@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '../../stores/authStore.js';
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated, loading, hasCheckedAuth, fetchMe } = useAuthStore();

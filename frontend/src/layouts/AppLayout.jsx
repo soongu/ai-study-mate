@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
-import AppHeader from '../components/AppHeader.jsx';
-import AppFooter from '../components/AppFooter.jsx';
-import ToastProvider from '../components/ToastProvider.jsx';
+import AppHeader from '../components/layout/AppHeader.jsx';
+import AppFooter from '../components/layout/AppFooter.jsx';
+import ToastProvider from '../components/toast/ToastProvider.jsx';
 import { useAuthStore } from '../stores/authStore.js';
 
 const AppLayout = () => {

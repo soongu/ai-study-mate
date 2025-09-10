@@ -5,7 +5,7 @@ import StudyRoomList from './pages/StudyRoomList.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import AppLayout from './layouts/AppLayout.jsx';
 import { loginLoader } from './loaders/authLoaders.js';
-import PrivateRoute from './components/PrivateRoute.jsx';
+import PrivateRoute from './components/auth/PrivateRoute.jsx';
 
 export const router = createBrowserRouter([
   {
