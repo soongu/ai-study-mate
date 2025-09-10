@@ -21,6 +21,9 @@ export const useRoomStore = create((set) => ({
   setRooms: (rooms) => set({ rooms }),
   // addRoomToTop: 새로 생성된 방을 목록 최상단에 추가합니다. (불변성 유지)
   addRoomToTop: (room) => set((state) => ({ rooms: [room, ...state.rooms] })),
+  // appendRooms: 페이징/무한스크롤에서 기존 목록 뒤에 이어 붙입니다.
+  appendRooms: (moreRooms) =>
+    set((state) => ({ rooms: [...state.rooms, ...moreRooms] })),
   // selectRoom: 상세/참여 액션에서 사용할 선택된 방 ID를 저장합니다.
   selectRoom: (roomId) => set({ selectedRoomId: roomId }),
   // setParticipants: 특정 roomId의 참여자 목록 캐시를 갱신합니다.

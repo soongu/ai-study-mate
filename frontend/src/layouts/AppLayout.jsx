@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import AppHeader from '../components/AppHeader.jsx';
 import AppFooter from '../components/AppFooter.jsx';
+import { ToastProvider } from '../components/ToastProvider.jsx';
 import { useAuthStore } from '../stores/authStore.js';
 
 const AppLayout = () => {
@@ -16,15 +17,17 @@ const AppLayout = () => {
   }, [isAuthenticated, user, fetchMe]);
 
   return (
-    <div className='min-h-screen flex flex-col'>
-      <AppHeader />
+    <ToastProvider>
+      <div className='min-h-screen flex flex-col'>
+        <AppHeader />
 
-      <main className='flex-1'>
-        <Outlet />
-      </main>
+        <main className='flex-1'>
+          <Outlet />
+        </main>
 
-      <AppFooter />
-    </div>
+        <AppFooter />
+      </div>
+    </ToastProvider>
   );
 };
 

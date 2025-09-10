@@ -9,6 +9,7 @@ import RoomListSkeleton from '../components/RoomListSkeleton.jsx';
 import CreateRoomModal from '../components/CreateRoomModal.jsx';
 import { RoomService } from '../services/roomService.js';
 import { useRoomStore } from '../stores/roomStore.js';
+import { useToast } from '../components/toastContext.js';
 
 // 임시 데이터 (백엔드 연동 전)
 // 실제로는 백엔드의 GET /api/rooms 결과를 사용합니다.
@@ -45,14 +46,23 @@ const StudyRoomList = () => {
   // - submitting: 생성 요청 진행 중 여부
   // - submitError: 생성 실패 시 에러 메시지
   const [loading, setLoading] = useState(true);
-  // 전역 Store: rooms 목록과 세팅 액션 사용
+  // 전역 Store: rooms 목록과 세팅/추가 액션 사용
   const rooms = useRoomStore((s) => s.rooms);
   const setRooms = useRoomStore((s) => s.setRooms);
   const addRoomToTop = useRoomStore((s) => s.addRoomToTop);
+  const appendRooms = useRoomStore((s) => s.appendRooms);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  // 검색/페이지네이션/토스트 상태
+  const [keyword, setKeyword] = useState(''); // 입력값
+  const [debouncedKeyword, setDebouncedKeyword] = useState(''); // 디바운싱 확정값
+  const [isDebouncing, setIsDebouncing] = useState(false);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const { show: showToast } = useToast();
 
   // 모달 닫기 핸들러 (onClose에 바인딩)
   const handleCloseModal = () => {
@@ -84,6 +94,11 @@ const StudyRoomList = () => {
         participantsCount: res?.participantsCount ?? 1,
         maxParticipants: res?.maxParticipants ?? 4,
       });
+      // 성공 토스트 노출
+      showToast('방이 생성되었습니다.', {
+        type: 'success',
+        position: 'top-center',
+      });
       setModalOpen(false);
     } catch (e) {
       const msg = e?.response?.data?.message || '방 생성에 실패했습니다.';
@@ -93,20 +108,53 @@ const StudyRoomList = () => {
     }
   };
 
+  // 디바운싱: 입력 후 700ms 지나면 확정 키워드로 반영
   useEffect(() => {
-    // 초기 로딩 스켈레톤 표시 후, 임시 데이터 주입
-    // 실제 구현 시에는 여기에서 RoomService.listRooms() 같은 API를 호출합니다.
-    // setTimeout은 로딩 상태를 체감하기 위한 데모용 지연입니다.
+    setIsDebouncing(true);
     const t = setTimeout(() => {
-      setRooms(mockRooms);
-      setLoading(false);
-    }, 1000);
+      setDebouncedKeyword(keyword.trim());
+      setIsDebouncing(false);
+    }, 700);
     return () => clearTimeout(t);
-  }, [setRooms]);
+  }, [keyword]);
+
+  useEffect(() => {
+    // 초기 로드 및 확정 키워드 변경 시 첫 페이지 로드
+    const fetchRooms = async () => {
+      try {
+        setLoading(true);
+        const { items, pageInfo } = await RoomService.listRooms({
+          page: 0,
+          size: 12,
+          keyword: debouncedKeyword,
+        });
+        setRooms(items);
+        setPage(pageInfo.page);
+        setTotalPages(pageInfo.totalPages);
+      } catch {
+        // 실패 시: 최소한의 UX를 위해 기존 목데이터를 표시
+        setRooms(mockRooms);
+        setPage(0);
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRooms();
+  }, [setRooms, debouncedKeyword]);
 
   return (
     <div className='min-h-[calc(100vh-10rem)] bg-gray-50'>
       <div className='container mx-auto px-4 py-8'>
+        {/* 검색 바 (실시간 검색 + 디바운싱 표시) */}
+        <div className='mb-4'>
+          <input
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder='방 제목 검색'
+            className='input-field w-full'
+          />
+        </div>
         <div className='flex items-center justify-between mb-6'>
           <div>
             <h1 className='text-2xl md:text-3xl font-bold text-gray-900'>
@@ -125,7 +173,7 @@ const StudyRoomList = () => {
           </button>
         </div>
 
-        {loading ? (
+        {loading || isDebouncing ? (
           // 1) 로딩 상태: 스켈레톤 카드 그리드 노출
           <RoomListSkeleton count={8} />
         ) : rooms.length === 0 ? (
@@ -151,7 +199,43 @@ const StudyRoomList = () => {
             ))}
           </div>
         )}
+        {/* 더 보기 */}
+        {!loading && rooms.length > 0 && page + 1 < totalPages && (
+          <div className='mt-8 flex justify-center'>
+            <button
+              type='button'
+              className='btn-primary disabled:opacity-60'
+              disabled={loadingMore}
+              onClick={async () => {
+                if (loadingMore) return;
+                const next = page + 1;
+                if (totalPages && next >= totalPages) return;
+                try {
+                  setLoadingMore(true);
+                  const { items, pageInfo } = await RoomService.listRooms({
+                    page: next,
+                    size: 12,
+                    keyword: debouncedKeyword,
+                  });
+                  appendRooms(items);
+                  setPage(pageInfo.page);
+                  setTotalPages(pageInfo.totalPages);
+                } catch {
+                  // 네트워크 에러 발생 시 토스트로 안내
+                  showToast(
+                    '네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+                    { type: 'error' }
+                  );
+                } finally {
+                  setLoadingMore(false);
+                }
+              }}>
+              {loadingMore ? '불러오는 중...' : '더 보기'}
+            </button>
+          </div>
+        )}
       </div>
+      {/* 전역 ToastProvider에서 렌더링됨 */}
       <CreateRoomModal
         open={modalOpen}
         onClose={handleCloseModal}
