@@ -9,11 +9,13 @@ import com.study.mate.dto.response.StudyRoomDetailResponse;
 import com.study.mate.dto.response.StudyRoomListItemResponse;
 import com.study.mate.dto.response.StudyRoomResponse;
 import com.study.mate.service.StudyRoomService;
+import com.study.mate.service.UsersService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 public class StudyRoomController {
 
     private final StudyRoomService studyRoomService;
+    private final UsersService usersService;
 
     /**
      * 스터디룸 생성
@@ -38,9 +41,14 @@ public class StudyRoomController {
      * @return 생성된 스터디룸 응답 DTO를 ApiResponse로 래핑하여 반환
      */
     @PostMapping
-    public ApiResponse<StudyRoomResponse> create(@Valid @RequestBody CreateRoomRequest request) {
-        log.info("[RoomCreate] hostUserId={}, title='{}'", request.hostUserId(), request.title());
-        return ApiResponse.ok(studyRoomService.createRoom(request));
+    public ApiResponse<StudyRoomResponse> create(@AuthenticationPrincipal String subject,
+                                                 @Valid @RequestBody CreateRoomRequest request) {
+        // subject는 OAuth2 공급자의 식별자(providerId)
+        var me = usersService.findMeByProviderId(subject);
+        log.info("[RoomCreate] providerId={}, resolvedUserId={}, title='{}'", subject, me.getId(), request.title());
+        // 토큰 기반 userId로 대체하여 서비스에 전달
+        // 요청 DTO는 title/description만 포함, userId는 토큰에서 해석
+        return ApiResponse.ok(studyRoomService.createRoom(me.getId(), request));
     }
 
     /**
@@ -62,47 +70,56 @@ public class StudyRoomController {
     /**
      * 스터디룸 상세 조회 (참여자 수 포함)
      *
-     * @param id 스터디룸 ID
+     * @param roomId 스터디룸 ID
      * @return 상세 정보(없으면 null)를 ApiResponse로 래핑하여 반환
      */
-    @GetMapping("/{id}")
-    public ApiResponse<StudyRoomDetailResponse> detail(@PathVariable Long id) {
-        log.debug("[RoomDetail] id={}", id);
-        return ApiResponse.ok(studyRoomService.getRoomDetail(id).orElse(null));
+    @GetMapping("/{roomId}")
+    public ApiResponse<StudyRoomDetailResponse> detail(@PathVariable Long roomId) {
+        log.debug("[RoomDetail] roomId={}", roomId);
+        return ApiResponse.ok(studyRoomService.getRoomDetail(roomId).orElse(null));
     }
 
     /**
      * 스터디룸 참여
      *
-     * @param id 경로 변수의 방 ID(검증 목적)
+     * @param roomId 경로 변수의 방 ID(검증 목적)
      * @param request 참여 요청 DTO (실제 로직은 request.roomId 사용)
      * @return 참여 결과 응답 DTO를 ApiResponse로 래핑하여 반환
      */
-    @PostMapping("/{id}/join")
-    public ApiResponse<JoinLeaveResponse> join(@PathVariable Long id, @Valid @RequestBody JoinRoomRequest request) {
-        log.info("[RoomJoin] pathId={}, body.roomId={}, userId={}", id, request.roomId(), request.userId());
-        if (!id.equals(request.roomId())) {
-            log.warn("[RoomJoin] Path roomId and body roomId mismatch: {} vs {}", id, request.roomId());
+    @PostMapping("/{roomId}/join")
+    public ApiResponse<JoinLeaveResponse> join(@AuthenticationPrincipal String subject,
+                                               @PathVariable Long roomId,
+                                               @Valid @RequestBody JoinRoomRequest request) {
+        var me = usersService.findMeByProviderId(subject);
+        log.info("[RoomJoin] providerId={}, resolvedUserId={}, path.roomId={}, body.roomId={}", subject, me.getId(), roomId, request.roomId());
+        if (!roomId.equals(request.roomId())) {
+            log.warn("[RoomJoin] Path roomId and body roomId mismatch: {} vs {}", roomId, request.roomId());
             return ApiResponse.error("roomId mismatch");
         }
-        return ApiResponse.ok(studyRoomService.joinRoom(request));
+        // 토큰 기반 userId로 대체하여 서비스에 전달
+        var safeRequest = new JoinRoomRequest(request.roomId(), me.getId());
+        return ApiResponse.ok(studyRoomService.joinRoom(safeRequest));
     }
 
     /**
      * 스터디룸 나가기
      *
-     * @param id 경로 변수의 방 ID(검증 목적)
+     * @param roomId 경로 변수의 방 ID(검증 목적)
      * @param request 나가기 요청 DTO (실제 로직은 request.roomId 사용)
      * @return 나가기 결과 응답 DTO를 ApiResponse로 래핑하여 반환
      */
-    @DeleteMapping("/{id}/leave")
-    public ApiResponse<JoinLeaveResponse> leave(@PathVariable Long id, @Valid @RequestBody LeaveRoomRequest request) {
-        log.info("[RoomLeave] pathId={}, body.roomId={}, userId={}", id, request.roomId(), request.userId());
-        if (!id.equals(request.roomId())) {
-            log.warn("[RoomLeave] Path roomId and body roomId mismatch: {} vs {}", id, request.roomId());
+    @DeleteMapping("/{roomId}/leave")
+    public ApiResponse<JoinLeaveResponse> leave(@AuthenticationPrincipal String subject,
+                                                @PathVariable Long roomId,
+                                                @Valid @RequestBody LeaveRoomRequest request) {
+        var me = usersService.findMeByProviderId(subject);
+        log.info("[RoomLeave] providerId={}, resolvedUserId={}, path.roomId={}, body.roomId={}", subject, me.getId(), roomId, request.roomId());
+        if (!roomId.equals(request.roomId())) {
+            log.warn("[RoomLeave] Path roomId and body roomId mismatch: {} vs {}", roomId, request.roomId());
             return ApiResponse.error("roomId mismatch");
         }
-        return ApiResponse.ok(studyRoomService.leaveRoom(request));
+        var safeRequest = new LeaveRoomRequest(request.roomId(), me.getId());
+        return ApiResponse.ok(studyRoomService.leaveRoom(safeRequest));
     }
 }
 

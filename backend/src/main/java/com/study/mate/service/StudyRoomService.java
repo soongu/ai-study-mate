@@ -67,13 +67,14 @@ public class StudyRoomService {
      * 입력/출력은 서비스 레이어에서 DTO(record)를 사용합니다.
      * 컨트롤러에서는 반환값을 {@code ApiResponse.ok(...)}로 래핑하여 응답합니다.
      *
+     * @param hostUserId 토큰에서 해석한 사용자 ID
      * @param request 스터디룸 생성 요청 DTO
      * @return 생성된 스터디룸 응답 DTO
      * @throws BusinessException {@link ErrorCode#USER_NOT_FOUND} 사용자를 찾지 못한 경우
      */
-    public StudyRoomResponse createRoom(CreateRoomRequest request) {
+    public StudyRoomResponse createRoom(Long hostUserId, CreateRoomRequest request) {
         // 1) 호스트 사용자 조회 및 검증
-        User host = userRepository.findById(request.hostUserId())
+        User host = userRepository.findById(hostUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         // 2) 스터디룸 엔티티 생성

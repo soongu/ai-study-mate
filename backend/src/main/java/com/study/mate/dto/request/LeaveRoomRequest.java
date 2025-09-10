@@ -7,7 +7,8 @@ import jakarta.validation.constraints.NotNull;
  */
 public record LeaveRoomRequest(
         @NotNull(message = "roomId는 필수입니다.") Long roomId,
-        @NotNull(message = "userId는 필수입니다.") Long userId
+        // userId는 토큰(subject)으로 서버에서 주입되므로 클라이언트 필수값이 아닙니다.
+        Long userId
 ) {}
 
 
