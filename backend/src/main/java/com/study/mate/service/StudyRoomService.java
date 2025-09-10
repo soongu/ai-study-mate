@@ -6,7 +6,10 @@ import com.study.mate.entity.RoomParticipant;
 import com.study.mate.entity.StudyRoom;
 import com.study.mate.entity.User;
 import com.study.mate.dto.request.CreateRoomRequest;
+import com.study.mate.dto.request.JoinRoomRequest;
+import com.study.mate.dto.request.LeaveRoomRequest;
 import com.study.mate.dto.response.StudyRoomResponse;
+import com.study.mate.dto.response.JoinLeaveResponse;
 import com.study.mate.exception.BusinessException;
 import com.study.mate.exception.ErrorCode;
 import com.study.mate.repository.RoomParticipantRepository;
@@ -73,6 +76,57 @@ public class StudyRoomService {
 
         // 6) 생성된 스터디룸을 응답 DTO로 반환(정적 팩토리 사용)
         return StudyRoomResponse.from(saved);
+    }
+
+    /**
+     * 스터디룸에 참여합니다. 중복 참여를 막고, 최대 인원(4명)을 초과하지 않도록 검증합니다.
+     */
+    public JoinLeaveResponse joinRoom(JoinRoomRequest request) {
+        StudyRoom room = studyRoomRepository.findById(request.roomId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+        User user = userRepository.findById(request.userId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        // 중복 참여 방지
+        roomParticipantRepository.findByRoomIdAndUserId(room.getId(), user.getId())
+                .ifPresent(rp -> { throw new BusinessException(ErrorCode.ALREADY_PARTICIPANT); });
+
+        // 인원 제한 검증 (MVP: 4명)
+        long count = roomParticipantRepository.countByRoomId(room.getId());
+        if (count >= 4) {
+            throw new BusinessException(ErrorCode.ROOM_FULL);
+        }
+
+        RoomParticipant participation = RoomParticipant.builder()
+                .room(room)
+                .user(user)
+                .role(ParticipantRole.PARTICIPANT)
+                .status(ParticipantStatus.ONLINE)
+                .build();
+        roomParticipantRepository.save(participation);
+
+        return JoinLeaveResponse.of(room.getId(), user.getId(), "join");
+    }
+
+    /**
+     * 스터디룸에서 나갑니다. 호스트는 나갈 수 없습니다.
+     */
+    public JoinLeaveResponse leaveRoom(LeaveRoomRequest request) {
+        StudyRoom room = studyRoomRepository.findById(request.roomId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ROOM_NOT_FOUND));
+        User user = userRepository.findById(request.userId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+
+        RoomParticipant participation = roomParticipantRepository.findByRoomIdAndUserId(room.getId(), user.getId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.BAD_REQUEST, "participant not found"));
+
+        if (participation.getRole() == ParticipantRole.HOST) {
+            throw new BusinessException(ErrorCode.HOST_CANNOT_LEAVE);
+        }
+
+        roomParticipantRepository.delete(participation);
+
+        return JoinLeaveResponse.of(room.getId(), user.getId(), "leave");
     }
 }
 
