@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import AppHeader from '../components/AppHeader.jsx';
 import AppFooter from '../components/AppFooter.jsx';
-import { ToastProvider } from '../components/ToastProvider.jsx';
+import ToastProvider from '../components/ToastProvider.jsx';
 import { useAuthStore } from '../stores/authStore.js';
 
 const AppLayout = () => {

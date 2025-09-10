@@ -1,14 +1,15 @@
 // 스터디룸 목록 페이지
-// - 목록 그리드 UI 표시
-// - 로딩 중에는 스켈레톤 노출
-// - 비어있으면 빈 상태 메시지 노출
-// - "방 만들기" 모달로 생성 플로우 제공
+// - 검색(실시간, 디바운싱) / 목록 / 더보기 / 방 생성 모달 / 토스트 안내
+// - 데이터 상태는 전역 store(zustand) 사용, 화면 상태는 로컬 state로 관리합니다.
 import React, { useEffect, useState } from 'react';
 import RoomCard from '../components/RoomCard.jsx';
 import RoomListSkeleton from '../components/RoomListSkeleton.jsx';
 import CreateRoomModal from '../components/CreateRoomModal.jsx';
 import { RoomService } from '../services/roomService.js';
 import { useRoomStore } from '../stores/roomStore.js';
+import RoomSearchBar from '../components/RoomSearchBar.jsx';
+import RoomListGrid from '../components/RoomListGrid.jsx';
+import LoadMoreButton from '../components/LoadMoreButton.jsx';
 import { useToast } from '../components/toastContext.js';
 
 // 임시 데이터 (백엔드 연동 전)
@@ -40,8 +41,8 @@ const mockRooms = [
 
 const StudyRoomList = () => {
   // UI 상태
-  // - loading: 초기 데이터 로딩 여부
-  // - rooms: 스터디룸 목록 데이터
+  // - loading: 목록 로딩 여부
+  // - rooms: 스터디룸 목록 데이터(전역 store)
   // - modalOpen: 생성 모달 열림/닫힘
   // - submitting: 생성 요청 진행 중 여부
   // - submitError: 생성 실패 시 에러 메시지
@@ -57,8 +58,8 @@ const StudyRoomList = () => {
   const [submitError, setSubmitError] = useState('');
   // 검색/페이지네이션/토스트 상태
   const [keyword, setKeyword] = useState(''); // 입력값
-  const [debouncedKeyword, setDebouncedKeyword] = useState(''); // 디바운싱 확정값
-  const [isDebouncing, setIsDebouncing] = useState(false);
+  const [debouncedKeyword, setDebouncedKeyword] = useState(''); // 디바운싱 확정값(요청용)
+  const [isDebouncing, setIsDebouncing] = useState(false); // 디바운싱 중 스켈레톤 표시
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -74,7 +75,7 @@ const StudyRoomList = () => {
     }
   };
 
-  // 방 생성 제출 핸들러 (onSubmit에 바인딩)
+  // 방 생성 제출 핸들러 (CreateRoomModal.onSubmit)
   const handleCreateRoomSubmit = async ({ title, description }) => {
     // 생성 버튼 클릭 시 호출되는 제출 핸들러
     // 1) 제출 상태로 전환 → 버튼 비활성화/텍스트 변경
@@ -105,6 +106,30 @@ const StudyRoomList = () => {
       setSubmitError(msg);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // 더보기 클릭 핸들러 (LoadMoreButton에 바인딩)
+  const handleLoadMore = async () => {
+    if (loadingMore) return;
+    const next = page + 1;
+    if (totalPages && next >= totalPages) return;
+    try {
+      setLoadingMore(true);
+      const { items, pageInfo } = await RoomService.listRooms({
+        page: next,
+        size: 12,
+        keyword: debouncedKeyword,
+      });
+      appendRooms(items);
+      setPage(pageInfo.page);
+      setTotalPages(pageInfo.totalPages);
+    } catch {
+      showToast('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', {
+        type: 'error',
+      });
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -147,14 +172,10 @@ const StudyRoomList = () => {
     <div className='min-h-[calc(100vh-10rem)] bg-gray-50'>
       <div className='container mx-auto px-4 py-8'>
         {/* 검색 바 (실시간 검색 + 디바운싱 표시) */}
-        <div className='mb-4'>
-          <input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder='방 제목 검색'
-            className='input-field w-full'
-          />
-        </div>
+        <RoomSearchBar
+          value={keyword}
+          onChange={setKeyword}
+        />
         <div className='flex items-center justify-between mb-6'>
           <div>
             <h1 className='text-2xl md:text-3xl font-bold text-gray-900'>
@@ -185,54 +206,18 @@ const StudyRoomList = () => {
           </div>
         ) : (
           // 3) 정상 목록: 카드 그리드 렌더링
-          <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'>
-            {rooms.map((room) => (
-              <RoomCard
-                key={room.id}
-                title={room.title}
-                description={room.description}
-                participantsCount={room.participantsCount}
-                maxParticipants={room.maxParticipants}
-                // 카드 클릭 시 상세 페이지로 이동하도록 훗날 연결 예정
-                onClick={() => {}}
-              />
-            ))}
-          </div>
+          <RoomListGrid
+            rooms={rooms}
+            onCardClick={() => {}}
+          />
         )}
         {/* 더 보기 */}
         {!loading && rooms.length > 0 && page + 1 < totalPages && (
-          <div className='mt-8 flex justify-center'>
-            <button
-              type='button'
-              className='btn-primary disabled:opacity-60'
-              disabled={loadingMore}
-              onClick={async () => {
-                if (loadingMore) return;
-                const next = page + 1;
-                if (totalPages && next >= totalPages) return;
-                try {
-                  setLoadingMore(true);
-                  const { items, pageInfo } = await RoomService.listRooms({
-                    page: next,
-                    size: 12,
-                    keyword: debouncedKeyword,
-                  });
-                  appendRooms(items);
-                  setPage(pageInfo.page);
-                  setTotalPages(pageInfo.totalPages);
-                } catch {
-                  // 네트워크 에러 발생 시 토스트로 안내
-                  showToast(
-                    '네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
-                    { type: 'error' }
-                  );
-                } finally {
-                  setLoadingMore(false);
-                }
-              }}>
-              {loadingMore ? '불러오는 중...' : '더 보기'}
-            </button>
-          </div>
+          <LoadMoreButton
+            disabled={loadingMore}
+            loading={loadingMore}
+            onClick={handleLoadMore}
+          />
         )}
       </div>
       {/* 전역 ToastProvider에서 렌더링됨 */}
