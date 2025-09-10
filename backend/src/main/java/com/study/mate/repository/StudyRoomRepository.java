@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import java.util.List;
     
 
-public interface StudyRoomRepository extends JpaRepository<StudyRoom, Long> {
+public interface StudyRoomRepository extends JpaRepository<StudyRoom, Long>, StudyRoomRepositoryCustom {
 
     /**
      * 특정 호스트(유저)가 생성한 스터디룸 목록을 조회합니다.
