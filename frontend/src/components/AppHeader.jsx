@@ -73,6 +73,11 @@ const AppHeader = () => {
             className='hidden sm:inline text-gray-600 hover:text-gray-900 rounded-md px-3 py-2 transition-colors hover:bg-gray-100'>
             홈
           </Link>
+          <Link
+            to='/app/rooms'
+            className='hidden sm:inline text-gray-600 hover:text-gray-900 rounded-md px-3 py-2 transition-colors hover:bg-gray-100'>
+            스터디룸
+          </Link>
 
           {isAuthenticated && (
             <div
@@ -133,6 +138,11 @@ const AppHeader = () => {
                       to='/app'
                       className='block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50'>
                       대시보드
+                    </Link>
+                    <Link
+                      to='/app/rooms'
+                      className='block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50'>
+                      스터디룸
                     </Link>
                     <button
                       type='button'

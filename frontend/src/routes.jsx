@@ -1,6 +1,7 @@
 // 라우트 설정 - 데이터 방식 사용
 import { createBrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
+import StudyRoomList from './pages/StudyRoomList.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import AppLayout from './layouts/AppLayout.jsx';
 import { loginLoader } from './loaders/authLoaders.js';
@@ -19,7 +20,10 @@ export const router = createBrowserRouter([
         <AppLayout />
       </PrivateRoute>
     ),
-    children: [{ index: true, element: <App /> }],
+    children: [
+      { index: true, element: <App /> },
+      { path: 'rooms', element: <StudyRoomList /> },
+    ],
   },
 ]);
 
