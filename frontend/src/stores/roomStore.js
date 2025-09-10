@@ -26,6 +26,14 @@ export const useRoomStore = create((set) => ({
     set((state) => ({ rooms: [...state.rooms, ...moreRooms] })),
   // selectRoom: 상세/참여 액션에서 사용할 선택된 방 ID를 저장합니다.
   selectRoom: (roomId) => set({ selectedRoomId: roomId }),
+  // updateRoomParticipantsCount: 특정 roomId의 참여자 수를 갱신합니다.
+  // - 목록 카드 상단 배지에 즉시 반영되어 일관된 UX를 제공합니다.
+  updateRoomParticipantsCount: (roomId, newCount) =>
+    set((state) => ({
+      rooms: state.rooms.map((r) =>
+        r.id === roomId ? { ...r, participantsCount: newCount } : r
+      ),
+    })),
   // setParticipants: 특정 roomId의 참여자 목록 캐시를 갱신합니다.
   // - 동일 화면 재방문 시 재요청을 최소화하여 렌더링 성능과 일관성을 확보합니다.
   // - 참여/나가기 액션 직후 화면을 즉시 최신 상태로 보여줍니다.

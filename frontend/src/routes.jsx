@@ -2,6 +2,7 @@
 import { createBrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import StudyRoomList from './pages/StudyRoomList.jsx';
+import RoomDetail from './pages/RoomDetail.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import AppLayout from './layouts/AppLayout.jsx';
 import { loginLoader } from './loaders/authLoaders.js';
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <App /> },
       { path: 'rooms', element: <StudyRoomList /> },
+      { path: 'rooms/:id', element: <RoomDetail /> },
     ],
   },
 ]);

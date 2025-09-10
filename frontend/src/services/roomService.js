@@ -27,6 +27,16 @@ export const RoomService = {
   // 상세 조회: ApiResponse<StudyRoomDetailResponse>
   getRoomDetail: (roomId) =>
     apiClient.get(`/rooms/${roomId}`).then(({ data }) => data?.data),
+  // 참여자 목록(백엔드 미구현 시 안전 폴백: [])
+  getParticipants: async (roomId) => {
+    try {
+      const { data } = await apiClient.get(`/rooms/${roomId}/participants`);
+      return data?.data ?? [];
+    } catch {
+      return [];
+    }
+  },
+
   // 참여: ApiResponse<JoinLeaveResponse>
   joinRoom: (roomId) =>
     apiClient
