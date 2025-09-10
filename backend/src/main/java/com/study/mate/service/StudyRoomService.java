@@ -10,6 +10,8 @@ import com.study.mate.dto.request.JoinRoomRequest;
 import com.study.mate.dto.request.LeaveRoomRequest;
 import com.study.mate.dto.response.StudyRoomResponse;
 import com.study.mate.dto.response.JoinLeaveResponse;
+import com.study.mate.dto.response.StudyRoomListItemResponse;
+import com.study.mate.dto.response.StudyRoomDetailResponse;
 import com.study.mate.exception.BusinessException;
 import com.study.mate.exception.ErrorCode;
 import com.study.mate.repository.RoomParticipantRepository;
@@ -17,6 +19,11 @@ import com.study.mate.repository.StudyRoomRepository;
 import com.study.mate.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
+
+import java.util.Optional;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +42,23 @@ public class StudyRoomService {
     private final StudyRoomRepository studyRoomRepository;
     private final RoomParticipantRepository roomParticipantRepository;
     private final UserRepository userRepository;
+    /**
+     * 스터디룸 목록(참여자 수 포함)을 페이지로 조회합니다.
+     */
+    @Transactional(readOnly = true)
+    public Page<StudyRoomListItemResponse> listRooms(String keyword, Long hostId, Pageable pageable) {
+        return studyRoomRepository.searchRooms(keyword, hostId, pageable)
+                .map(StudyRoomListItemResponse::from);
+    }
+
+    /**
+     * 스터디룸 상세(참여자 수 포함)를 조회합니다.
+     */
+    @Transactional(readOnly = true)
+    public Optional<StudyRoomDetailResponse> getRoomDetail(Long roomId) {
+        return studyRoomRepository.findByIdWithParticipantCount(roomId)
+                .map(StudyRoomDetailResponse::from);
+    }
 
     
     /**
