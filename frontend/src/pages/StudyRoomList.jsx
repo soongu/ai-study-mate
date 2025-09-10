@@ -8,6 +8,7 @@ import RoomCard from '../components/RoomCard.jsx';
 import RoomListSkeleton from '../components/RoomListSkeleton.jsx';
 import CreateRoomModal from '../components/CreateRoomModal.jsx';
 import { RoomService } from '../services/roomService.js';
+import { useRoomStore } from '../stores/roomStore.js';
 
 // 임시 데이터 (백엔드 연동 전)
 // 실제로는 백엔드의 GET /api/rooms 결과를 사용합니다.
@@ -44,7 +45,11 @@ const StudyRoomList = () => {
   // - submitting: 생성 요청 진행 중 여부
   // - submitError: 생성 실패 시 에러 메시지
   const [loading, setLoading] = useState(true);
-  const [rooms, setRooms] = useState([]);
+  // 전역 Store: rooms 목록과 세팅 액션 사용
+  const rooms = useRoomStore((s) => s.rooms);
+  const setRooms = useRoomStore((s) => s.setRooms);
+  const addRoomToTop = useRoomStore((s) => s.addRoomToTop);
+
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -65,23 +70,20 @@ const StudyRoomList = () => {
     // 1) 제출 상태로 전환 → 버튼 비활성화/텍스트 변경
     // 2) RoomService.createRoom 호출로 서버에 방 생성 요청
     // 3) 성공 시: 모달 닫고 목록 상단에 새 카드 추가 (임시 UX)
-    //    - 백엔드는 ApiResponse<T> 형태로 내려주므로 res.data에 실제 도메인 데이터가 있습니다.
+    //    - 서비스가 ApiResponse<T>에서 data만 반환하므로 res가 도메인 데이터입니다.
     // 4) 실패 시: 모달 내부에 에러 메시지 표시
     try {
       setSubmitting(true);
       setSubmitError('');
       const res = await RoomService.createRoom({ title, description });
-      // 성공 시: 모달 닫고 목록 상단에 추가(임시)
-      setRooms((prev) => [
-        {
-          id: res?.data?.id || Math.random(),
-          title: res?.data?.title || title,
-          description: res?.data?.description || description,
-          participantsCount: res?.data?.participantsCount ?? 1,
-          maxParticipants: res?.data?.maxParticipants ?? 4,
-        },
-        ...prev,
-      ]);
+      // 성공 시: 모달 닫고 전역 Store 목록 상단에 추가(임시)
+      addRoomToTop({
+        id: res?.id || Math.random(),
+        title: res?.title || title,
+        description: res?.description || description,
+        participantsCount: res?.participantsCount ?? 1,
+        maxParticipants: res?.maxParticipants ?? 4,
+      });
       setModalOpen(false);
     } catch (e) {
       const msg = e?.response?.data?.message || '방 생성에 실패했습니다.';
@@ -100,7 +102,7 @@ const StudyRoomList = () => {
       setLoading(false);
     }, 1000);
     return () => clearTimeout(t);
-  }, []);
+  }, [setRooms]);
 
   return (
     <div className='min-h-[calc(100vh-10rem)] bg-gray-50'>
