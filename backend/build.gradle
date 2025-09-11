@@ -33,6 +33,8 @@ dependencies {
 	// Security & OAuth2
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	// WebSocket 메시지 보안 DSL (simpDestMatchers 등)
+	implementation 'org.springframework.security:spring-security-messaging'
 	
 	// WebSocket
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'

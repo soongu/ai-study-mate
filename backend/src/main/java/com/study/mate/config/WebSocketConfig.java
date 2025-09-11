@@ -1,5 +1,6 @@
 package com.study.mate.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -38,7 +39,10 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  */
 @Configuration
 @EnableWebSocketMessageBroker // STOMP 메시징을 사용하는 WebSocket 서버로 동작하도록 활성화
+@RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    private final CookieAuthHandshakeInterceptor cookieAuthHandshakeInterceptor;
 
     /**
      * 브라우저가 WebSocket 연결을 "시작"할 문(주소)을 등록합니다.
@@ -52,7 +56,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry
             .addEndpoint("/ws")
             .setAllowedOriginPatterns("http://localhost:3000", "http://127.0.0.1:3000")
-            ;
+            .addInterceptors(cookieAuthHandshakeInterceptor);
     }
 
     /**
