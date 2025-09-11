@@ -20,6 +20,11 @@ import { RoomService } from '../services/roomService.js';
 import { useRoomStore } from '../stores/roomStore.js';
 import { useToast } from '../components/toast/toastContext.js';
 import { useAuthStore } from '../stores/authStore.js';
+// STOMP 구독/전송 테스트를 위한 임시 연동 (실제 메시지 UI 전에 삭제/수정 예정)
+import {
+  connect as wsConnect,
+  subscribe as wsSubscribe,
+} from '../services/websocketService.js';
 
 const RoomDetail = () => {
   // 경로 파라미터(:id)를 숫자로 변환 (NaN 방지)
@@ -274,7 +279,8 @@ const RoomDetail = () => {
           )}
           {/* 실제 채팅 기능 연동 전 임시 WebSocket 테스트 패널 - 이후 삭제 */}
           <div className='md:col-span-1'>
-            <WsDebugPanel />
+            {/* 실제 채팅 기능 연동 전: 테스트 패널에 roomId를 전달합니다. 이후 삭제 */}
+            <WsDebugPanel roomId={roomId} />
           </div>
         </div>
       </div>

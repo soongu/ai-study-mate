@@ -61,8 +61,22 @@ const maxDelayMs = 10_000;
 let retryCount = 0;
 /** @type {(s: ConnectionState) => void | null} */
 let onStateChange = null;
-/** 수동 해제 시 자동 재연결을 막기 위한 스위치 */
+/**
+ * 수동 해제 시 자동 재연결을 막기 위한 스위치
+ * - true: 예기치 않게 끊겼을 때만 자동 재연결합니다(기본값)
+ * - false: 사용자가 명시적으로 disconnect()를 호출한 상태 → 자동 재연결 금지
+ */
 let reconnectAllowed = true;
+
+/**
+ * 구독 보관소: 재연결 시 자동 복구를 위해 "무엇을 구독 중인지" 기억해 둡니다.
+ * - key: destination(주소), 예) '/topic/rooms/1'
+ * - value: { handler, headers, subscription }
+ *   - handler: 메시지를 받았을 때 실행할 함수
+ *   - headers: 구독 시 전달할 추가 헤더(보통은 비어둡니다)
+ *   - subscription: 실제 STOMP 구독 객체(해제에 사용)
+ */
+const subscriptions = new Map();
 
 // 내부 헬퍼: 상태를 바꾸고, 구독자(리스너)에게 알려줍니다.
 const setState = (next) => {
@@ -131,6 +145,22 @@ export const connect = () => {
       // 연결 성공! 재시도 카운터를 초기화하고 상태를 CONNECTED로 바꿉니다.
       retryCount = 0;
       setState(ConnectionState.CONNECTED);
+      // 이미 신청된 구독들을 재등록합니다(재연결 복구)
+      // - 네트워크 끊김 뒤에도 "같은 방 소식"을 계속 받기 위함입니다.
+      subscriptions.forEach((entry, destination) => {
+        try {
+          // STOMP 클라이언트에 다시 구독을 신청합니다.
+          const sub = next.subscribe(
+            destination,
+            entry.handler,
+            entry.headers || {}
+          );
+          // 새로 받은 구독 객체를 저장해 두면, 나중에 해제할 수 있습니다.
+          entry.subscription = sub;
+        } catch {
+          /* noop */
+        }
+      });
     },
     onDisconnect: () => {
       // 정상 종료 시에도 상태를 DISCONNECTED로 반영합니다.
@@ -171,6 +201,68 @@ export const disconnect = async () => {
     await prev.deactivate();
   } finally {
     setState(ConnectionState.DISCONNECTED);
+  }
+};
+
+/**
+ * 토픽 구독 (임시 테스트 → 추후 실제 기능에서 메시지 구조에 맞춰 사용)
+ * @param {string} destination 예: '/topic/rooms/1'
+ * @param {(message: import('@stomp/stompjs').IMessage) => void} handler 수신 핸들러
+ * @param {import('@stomp/stompjs').StompHeaders} [headers]
+ * @returns {() => void} 구독 해제 함수
+ */
+export const subscribe = (destination, handler, headers = {}) => {
+  // 인자가 올바른지 확인합니다.
+  if (!destination || typeof handler !== 'function') return () => {};
+
+  // 1) 어떤 주소를 어떤 핸들러로 듣고 싶은지 메모리에 먼저 기록합니다.
+  const entry = { handler, headers, subscription: null };
+  subscriptions.set(destination, entry);
+
+  if (client?.connected) {
+    try {
+      // 2) 이미 연결되어 있다면 즉시 STOMP 구독을 신청합니다.
+      const sub = client.subscribe(destination, handler, headers);
+      entry.subscription = sub;
+    } catch {
+      /* noop */
+    }
+  }
+
+  // 3) 구독 해제 함수 반환(컴포넌트 언마운트 시 반드시 호출해 주세요)
+  return () => {
+    const current = subscriptions.get(destination);
+    if (current?.subscription) {
+      try {
+        // 실제 STOMP 구독을 해제합니다.
+        current.subscription.unsubscribe();
+      } catch {
+        /* noop */
+      }
+    }
+    // 메모리에서도 이 구독 정보를 제거합니다.
+    subscriptions.delete(destination);
+  };
+};
+
+/**
+ * 메시지 전송 (임시 테스트 → 추후 실제 기능에서 메시지 스키마 확정 후 사용)
+ * @param {string} destination 예: '/app/rooms/1/chat'
+ * @param {unknown} body 객체면 JSON 문자열로 직렬화되어 전송됩니다.
+ * @param {import('@stomp/stompjs').StompHeaders} [headers]
+ * @returns {boolean} 전송 성공 여부
+ */
+export const send = (destination, body = {}, headers = {}) => {
+  if (!client?.connected) return false;
+  try {
+    // 문자열이면 그대로, 객체이면 JSON 문자열로 변환해 전송합니다.
+    const payload = typeof body === 'string' ? body : JSON.stringify(body);
+    // destination(주소)로 메시지를 publish 하면, 서버가 적절한 토픽으로 중계합니다.
+    client.publish({ destination, body: payload, headers });
+    return true;
+  } catch {
+    // 네트워크/직렬화 오류 등으로 실패할 수 있으니, 호출 측에서 재시도 로직을 붙일 수 있습니다.
+    return false;
   }
 };
 
