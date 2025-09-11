@@ -13,6 +13,8 @@
  * - 백엔드 미구현/에러 시 참여자 목록은 안전하게 빈 배열([])로 폴백합니다.
  */
 import React, { useEffect, useMemo, useState } from 'react';
+// WebSocket 연결 테스트용 임시 컴포넌트 (실제 기능 도입 시 삭제)
+import WsDebugPanel from '../components/room/WsDebugPanel.jsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import { RoomService } from '../services/roomService.js';
 import { useRoomStore } from '../stores/roomStore.js';
@@ -270,6 +272,10 @@ const RoomDetail = () => {
               </button>
             </div>
           )}
+          {/* 실제 채팅 기능 연동 전 임시 WebSocket 테스트 패널 - 이후 삭제 */}
+          <div className='md:col-span-1'>
+            <WsDebugPanel />
+          </div>
         </div>
       </div>
     </div>

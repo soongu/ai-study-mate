@@ -46,15 +46,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
      * - "/ws": 브라우저가 가장 처음 접속하는 주소(핸드셰이크 URL)입니다.
      * - setAllowedOriginPatterns: 개발 중에는 로컬 프론트(3000 포트)에서의 연결을 허용합니다.
      *   (운영 환경에서는 실제 도메인만 허용하도록 꼭 바꾸세요)
-     * - withSockJS: 어떤 네트워크/브라우저는 WebSocket을 못 쓸 수 있어요. 그때 자동으로 가능한 방식으로
-     *   바꿔 통신하도록 돕는 옵션입니다(예: 오래된 브라우저, 회사 내망 등).
      */
     @Override
     public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
         registry
             .addEndpoint("/ws")
             .setAllowedOriginPatterns("http://localhost:3000", "http://127.0.0.1:3000")
-            .withSockJS();
+            ;
     }
 
     /**
