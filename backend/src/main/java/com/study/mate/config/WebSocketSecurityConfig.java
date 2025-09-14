@@ -16,14 +16,16 @@ import org.springframework.security.messaging.access.intercept.MessageMatcherDel
 public class WebSocketSecurityConfig {
 
     @Bean
-    public AuthorizationManager<Message<?>> messageAuthorizationManager(
-        MessageMatcherDelegatingAuthorizationManager.Builder messages
-    ) {
-        messages
+    public AuthorizationManager<Message<?>> messageAuthorizationManager() {
+        MessageMatcherDelegatingAuthorizationManager.Builder builder =
+            MessageMatcherDelegatingAuthorizationManager.builder();
+
+        builder
             .simpDestMatchers("/app/**").authenticated()
             .simpSubscribeDestMatchers("/topic/**", "/queue/**").authenticated()
             .anyMessage().denyAll();
-        return messages.build();
+
+        return builder.build();
     }
 }
 
