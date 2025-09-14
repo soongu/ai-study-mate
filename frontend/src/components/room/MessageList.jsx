@@ -4,6 +4,7 @@ import MessageListSkeleton from './MessageListSkeleton.jsx';
 import { MessageService } from '../../services/messageService.js';
 import { useAuthStore } from '../../stores/authStore.js';
 import MessageInput from './MessageInput.jsx';
+import MessageSystemItem from './MessageSystemItem.jsx';
 import {
   connect as wsConnect,
   subscribe as wsSubscribe,
@@ -73,7 +74,19 @@ const MessageList = ({ roomId, open }) => {
     const unsubscribe = wsSubscribe(`/topic/rooms/${roomId}`, (msg) => {
       try {
         const data = JSON.parse(msg.body);
-        setMessages((prev) => [...prev, data]);
+        // 시스템 메시지(type: JOIN/LEAVE)는 가운데 라벨로 표시
+        if (
+          data &&
+          data.type &&
+          (data.type === 'JOIN' || data.type === 'LEAVE')
+        ) {
+          setMessages((prev) => [
+            ...prev,
+            { id: `sys-${Date.now()}`, system: true, text: data.content },
+          ]);
+        } else {
+          setMessages((prev) => [...prev, data]);
+        }
       } catch {
         // 파싱 실패 시 무시(서버 포맷 변경 등 예외 상황)
       }
@@ -104,13 +117,20 @@ const MessageList = ({ roomId, open }) => {
             아직 메시지가 없어요. 첫 메시지를 보내보세요!
           </p>
         ) : (
-          messages.map((m) => (
-            <MessageItem
-              key={m.id}
-              message={m}
-              isMine={me && m.senderId === me.id}
-            />
-          ))
+          messages.map((m) =>
+            m.system ? (
+              <MessageSystemItem
+                key={m.id}
+                text={m.text}
+              />
+            ) : (
+              <MessageItem
+                key={m.id}
+                message={m}
+                isMine={me && m.senderId === me.id}
+              />
+            )
+          )
         )}
         {/* 스크롤 목적지: 이 요소가 항상 리스트 맨 아래가 되도록 사용 */}
         <div ref={bottomRef} />
