@@ -13,18 +13,13 @@
  * - 백엔드 미구현/에러 시 참여자 목록은 안전하게 빈 배열([])로 폴백합니다.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-// WebSocket 연결 테스트용 임시 컴포넌트 (실제 기능 도입 시 삭제)
-import WsDebugPanel from '../components/room/WsDebugPanel.jsx';
+import MessageList from '../components/room/MessageList.jsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import { RoomService } from '../services/roomService.js';
 import { useRoomStore } from '../stores/roomStore.js';
 import { useToast } from '../components/toast/toastContext.js';
 import { useAuthStore } from '../stores/authStore.js';
-// STOMP 구독/전송 테스트를 위한 임시 연동 (실제 메시지 UI 전에 삭제/수정 예정)
-import {
-  connect as wsConnect,
-  subscribe as wsSubscribe,
-} from '../services/websocketService.js';
+// 소켓 연결/구독은 채팅 탭을 열 때 적용(Commit 8 예정)
 
 const RoomDetail = () => {
   // 경로 파라미터(:id)를 숫자로 변환 (NaN 방지)
@@ -68,6 +63,9 @@ const RoomDetail = () => {
   // 버튼/노출 조건: 호스트인지, 호스트가 아닌 참여자인지
   const isHost = myParticipant?.role === 'HOST';
   const isMemberNonHost = !!myParticipant && !isHost;
+
+  // 채팅 탭 열림 여부
+  const [chatOpen, setChatOpen] = useState(false);
 
   // 초기 로딩 및 roomId 변경 시 데이터 로드
   // - 상세 정보: 항상 최신 조회
@@ -277,11 +275,24 @@ const RoomDetail = () => {
               </button>
             </div>
           )}
-          {/* 실제 채팅 기능 연동 전 임시 WebSocket 테스트 패널 - 이후 삭제 */}
-          <div className='md:col-span-1'>
-            {/* 실제 채팅 기능 연동 전: 테스트 패널에 roomId를 전달합니다. 이후 삭제 */}
-            <WsDebugPanel roomId={roomId} />
+          {/* 채팅 패널: 항상 참여자 목록 하단에 위치 */}
+          <div className='mt-6 md:col-span-2'>
+            <button
+              type='button'
+              className='btn-secondary'
+              onClick={() => setChatOpen((v) => !v)}>
+              {chatOpen ? '채팅 닫기' : '채팅 열기'}
+            </button>
+            {chatOpen && (
+              <div className='h-[420px] mt-3'>
+                <MessageList
+                  roomId={roomId}
+                  open={chatOpen}
+                />
+              </div>
+            )}
           </div>
+          <div className='md:col-span-1 space-y-3'></div>
         </div>
       </div>
     </div>

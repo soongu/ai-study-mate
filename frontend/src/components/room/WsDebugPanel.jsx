@@ -17,7 +17,8 @@ import {
   ConnectionState,
   send as wsSend,
 } from '../../services/websocketService.js';
-
+// 이 파일은 테스트 용도로 사용되었으며, Commit 7에서 제거되었습니다.
+export default function WsDebugPanel() { return null; }
 const badgeClass = (state) => {
   if (state === ConnectionState.CONNECTED)
     return 'bg-green-50 text-green-700 border-green-200';
