@@ -4,6 +4,8 @@ import com.study.mate.util.CookieUtil;
 import com.study.mate.util.JwtTokenProvider;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.http.server.ServletServerHttpRequest;
@@ -28,6 +30,7 @@ import java.util.Map;
  */
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class CookieAuthHandshakeInterceptor implements HandshakeInterceptor {
 
     private final CookieUtil cookieUtil;
@@ -45,7 +48,8 @@ public class CookieAuthHandshakeInterceptor implements HandshakeInterceptor {
             if (token != null && jwtTokenProvider.validateToken(token)) {
                 // 2) 토큰이 유효하면 사용자 식별값(subject)을 꺼냅니다.
                 Claims claims = jwtTokenProvider.getClaims(token);
-                String subject = claims.getSubject(); // 예: 사용자 ID/이메일
+                String subject = claims.getSubject(); // 예: providerId
+                log.info("ws providerId: {}", subject);
 
                 // 3) 스프링 시큐리티 컨텍스트에 인증 정보를 심어둡니다.
                 UsernamePasswordAuthenticationToken auth =

@@ -15,6 +15,7 @@ public record ChatMessageResponse(
     Long roomId,
     Long senderId,
     String senderNickname,
+    String senderProfileImageUrl,
     String content,
     LocalDateTime createdAt
 ) {
@@ -25,6 +26,7 @@ public record ChatMessageResponse(
         .roomId(chatMessage.getRoom().getId())
         .senderId(chatMessage.getSender().getId())
         .senderNickname(chatMessage.getSender().getNickname())
+        .senderProfileImageUrl(chatMessage.getSender().getProfileImageUrl())
         .content(chatMessage.getContent())
         .createdAt(chatMessage.getCreatedAt())
         .build();
