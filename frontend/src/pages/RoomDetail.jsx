@@ -63,6 +63,7 @@ const RoomDetail = () => {
   // 버튼/노출 조건: 호스트인지, 호스트가 아닌 참여자인지
   const isHost = myParticipant?.role === 'HOST';
   const isMemberNonHost = !!myParticipant && !isHost;
+  const isParticipant = isHost || isMemberNonHost;
 
   // 채팅 탭 열림 여부
   const [chatOpen, setChatOpen] = useState(false);
@@ -275,20 +276,29 @@ const RoomDetail = () => {
               </button>
             </div>
           )}
-          {/* 채팅 패널: 항상 참여자 목록 하단에 위치 */}
+          {/* 채팅 패널: 항상 참여자 목록 하단에 위치 (비참여자는 차단) */}
           <div className='mt-6 md:col-span-2'>
-            <button
-              type='button'
-              className='btn-secondary'
-              onClick={() => setChatOpen((v) => !v)}>
-              {chatOpen ? '채팅 닫기' : '채팅 열기'}
-            </button>
-            {chatOpen && (
-              <div className='h-[420px] mt-3'>
-                <MessageList
-                  roomId={roomId}
-                  open={chatOpen}
-                />
+            {isParticipant ? (
+              <>
+                <button
+                  type='button'
+                  className='btn-secondary'
+                  onClick={() => setChatOpen((v) => !v)}>
+                  {chatOpen ? '채팅 닫기' : '채팅 열기'}
+                </button>
+                {chatOpen && (
+                  <div className='h-[420px] mt-3'>
+                    <MessageList
+                      roomId={roomId}
+                      open={chatOpen}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className='p-4 border rounded bg-gray-50 text-sm text-gray-600'>
+                채팅은 방에 참여한 사용자만 이용할 수 있어요. 먼저 참여하기를
+                눌러주세요.
               </div>
             )}
           </div>
