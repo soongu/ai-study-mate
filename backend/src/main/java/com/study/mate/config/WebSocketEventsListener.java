@@ -12,6 +12,7 @@ import org.springframework.web.socket.messaging.SessionSubscribeEvent;
 import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 
 import com.study.mate.service.UsersService;
+import com.study.mate.service.chat.UserSessionRegistry;
 
 /**
  * WebSocket 이벤트 리스너
@@ -31,6 +32,7 @@ public class WebSocketEventsListener {
   private final SimpMessagingTemplate messagingTemplate;
   // providerId(=JWT subject)로 사용자 정보를 조회해 닉네임을 알림 문구에 사용
   private final UsersService usersService;
+  private final UserSessionRegistry registry;
 
     @EventListener
     public void onSubscribe(SessionSubscribeEvent event) {
@@ -44,10 +46,11 @@ public class WebSocketEventsListener {
         String providerId = accessor.getUser() != null ? accessor.getUser().getName() : "anonymous";
         if (roomId != null) {
             log.info("SUBSCRIBE room={}, providerId={}", roomId, providerId);
-            // 카톡처럼 채팅창 중앙에 표시할 수 있도록 간단한 시스템 메시지를 브로드캐스트합니다.
-            // (세션 레지스트리 미적용 단계이므로 같은 유저가 탭 여러 개로 구독하면 중복으로 뜹니다)
-            messagingTemplate.convertAndSend("/topic/rooms/" + roomId,
-                new SystemMessagePayload("JOIN", providerId, usersService.findMeByProviderId(providerId).getNickname() + " 님이 입장했습니다."));
+            boolean firstJoin = registry.handleSubscribe(accessor.getSessionId(), accessor.getSubscriptionId(), roomId, providerId);
+            if (firstJoin) {
+                messagingTemplate.convertAndSend("/topic/rooms/" + roomId,
+                    new SystemMessagePayload("JOIN", providerId, usersService.findMeByProviderId(providerId).getNickname() + " 님이 입장했습니다."));
+            }
         }
     }
 
@@ -55,21 +58,22 @@ public class WebSocketEventsListener {
     public void onUnsubscribe(SessionUnsubscribeEvent event) {
         // 구독 해제 이벤트(대부분 페이지 이동/탭 닫기 전에 발생)
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
-        // 어떤 구독을 해제했는지 식별자만 제공될 수 있음(목적지 미포함 가능)
-        String subscriptionId = accessor.getSubscriptionId();
-        // STOMP 기본 스펙상 UNSUBSCRIBE에는 destination이 없을 수 있습니다.
-        // 데모 단계에서는 서버가 방 정보를 모를 수 있으므로, 클라이언트 쪽에서
-        // 실제로는 페이지 이동 시 DISCONNECT가 일어나며 퇴장 알림이 중복될 수 있습니다.
-        log.info("UNSUBSCRIBE subId={}", subscriptionId);
+        var result = registry.handleUnsubscribe(accessor.getSessionId(), accessor.getSubscriptionId());
+        if (result != null && result.lastLeave() && result.providerId() != null) {
+            messagingTemplate.convertAndSend("/topic/rooms/" + result.roomId(),
+                new SystemMessagePayload("LEAVE", result.providerId(), usersService.findMeByProviderId(result.providerId()).getNickname() + " 님이 퇴장했습니다."));
+        }
     }
 
     @EventListener
     public void onDisconnect(SessionDisconnectEvent event) {
         // 웹소켓 세션이 끊겼을 때(브라우저 탭 닫기, 네트워크 단절 등)
         String sessionId = event.getSessionId();
-        // 데모 단계에서는 정확한 roomId를 특정하기 어렵습니다.
-        // 실무에서는 세션-방 매핑(레지스트리/Redis)을 통해 마지막으로 있던 방을 찾아 퇴장알림을 보냅니다.
-        log.info("DISCONNECT sessionId={}", sessionId);
+        var results = registry.handleDisconnect(sessionId);
+        results.stream().filter(r -> r.lastLeave() && r.providerId() != null).forEach(r -> {
+            messagingTemplate.convertAndSend("/topic/rooms/" + r.roomId(),
+                new SystemMessagePayload("LEAVE", r.providerId(), usersService.findMeByProviderId(r.providerId()).getNickname() + " 님이 퇴장했습니다."));
+        });
     }
 
     private Long parseRoomId(String destination) {

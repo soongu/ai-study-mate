@@ -139,6 +139,8 @@ const RoomDetail = () => {
       const list = await RoomService.getParticipants(roomId);
       setParticipants(roomId, list);
       showToast('방에서 나왔어요.', { type: 'success' });
+      // 방 나가기 시 채팅 패널도 닫아 재구독으로 인한 JOIN/LEAVE 소음을 줄입니다.
+      setChatOpen(false);
       // 내 참여방 수 최신화(백그라운드)
       refreshMeSilent();
     } catch (e) {
