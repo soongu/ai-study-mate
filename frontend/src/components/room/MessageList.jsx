@@ -5,6 +5,7 @@ import { MessageService } from '../../services/messageService.js';
 import { useAuthStore } from '../../stores/authStore.js';
 import MessageInput from './MessageInput.jsx';
 import MessageSystemItem from './MessageSystemItem.jsx';
+import { useToast } from '../toast/toastContext.js';
 import {
   connect as wsConnect,
   subscribe as wsSubscribe,
@@ -28,6 +29,8 @@ import {
 const MessageList = ({ roomId, open }) => {
   // 현재 로그인 사용자(내 메시지 판단용)
   const me = useAuthStore((s) => s.user);
+  // 토스트(상단 중앙 안내 배너)
+  const { show: showToast } = useToast();
   // 초기 히스토리 로딩 스피너 상태
   const [loading, setLoading] = useState(false);
   // 화면에 보여줄 메시지 배열(오래된 → 최신 순)
@@ -80,6 +83,20 @@ const MessageList = ({ roomId, open }) => {
           data.type &&
           (data.type === 'JOIN' || data.type === 'LEAVE')
         ) {
+          // 작은 안내 토스트도 함께 표시하여 상단에서 눈에 띄게 알려줍니다.
+          if (data.type === 'JOIN') {
+            showToast(data.content, {
+              type: 'success',
+              position: 'top-center',
+              duration: 1800,
+            });
+          } else if (data.type === 'LEAVE') {
+            showToast(data.content, {
+              type: 'info',
+              position: 'top-center',
+              duration: 1800,
+            });
+          }
           setMessages((prev) => [
             ...prev,
             { id: `sys-${Date.now()}`, system: true, text: data.content },
@@ -95,7 +112,7 @@ const MessageList = ({ roomId, open }) => {
     return () => {
       unsubscribe?.();
     };
-  }, [open, roomId]);
+  }, [open, roomId, showToast]);
 
   // 3) 자동 스크롤
   // - 리스트 변경 시 항상 하단으로 내려줍니다(최신 메시지가 보이도록)
