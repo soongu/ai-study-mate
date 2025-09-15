@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
-import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
 import org.springframework.web.socket.messaging.SessionSubscribeEvent;
@@ -13,6 +12,7 @@ import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 
 import com.study.mate.service.UsersService;
 import com.study.mate.service.chat.UserSessionRegistry;
+import com.study.mate.service.presence.PresenceService;
 
 /**
  * WebSocket 이벤트 리스너
@@ -33,6 +33,7 @@ public class WebSocketEventsListener {
   // providerId(=JWT subject)로 사용자 정보를 조회해 닉네임을 알림 문구에 사용
   private final UsersService usersService;
   private final UserSessionRegistry registry;
+  private final PresenceService presenceService;
 
     @EventListener
     public void onSubscribe(SessionSubscribeEvent event) {
@@ -43,13 +44,16 @@ public class WebSocketEventsListener {
         // 구독 주소에서 방 아이디를 안전하게 추출(예: rooms/1 → 1)
         Long roomId = parseRoomId(destination);
         // 핸드셰이크에서 인증된 사용자 식별자(JWT subject=providerId)
-        String providerId = accessor.getUser() != null ? accessor.getUser().getName() : "anonymous";
+        var principal = accessor.getUser();
+        String providerId = (principal != null && principal.getName() != null) ? principal.getName() : "anonymous";
         if (roomId != null) {
             log.info("SUBSCRIBE room={}, providerId={}", roomId, providerId);
             boolean firstJoin = registry.handleSubscribe(accessor.getSessionId(), accessor.getSubscriptionId(), roomId, providerId);
             if (firstJoin) {
                 messagingTemplate.convertAndSend("/topic/rooms/" + roomId,
                     new SystemMessagePayload("JOIN", providerId, usersService.findMeByProviderId(providerId).getNickname() + " 님이 입장했습니다."));
+                // Presence: 첫 입장 시 ONLINE 전송
+                presenceService.online(roomId, providerId);
             }
         }
     }
@@ -62,6 +66,8 @@ public class WebSocketEventsListener {
         if (result != null && result.lastLeave() && result.providerId() != null) {
             messagingTemplate.convertAndSend("/topic/rooms/" + result.roomId(),
                 new SystemMessagePayload("LEAVE", result.providerId(), usersService.findMeByProviderId(result.providerId()).getNickname() + " 님이 퇴장했습니다."));
+            // Presence: 마지막 퇴장 시 OFFLINE 전송
+            presenceService.offline(result.roomId(), result.providerId());
         }
     }
 
