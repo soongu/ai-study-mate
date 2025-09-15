@@ -69,12 +69,16 @@ let onStateChange = null;
 let reconnectAllowed = true;
 
 /**
- * 구독 보관소: 재연결 시 자동 복구를 위해 "무엇을 구독 중인지" 기억해 둡니다.
+ * 구독 보관소(멀티 핸들러 + 참조 카운트)
+ * - 목적: 같은 destination으로 여러 곳에서 구독해도 실제 STOMP 구독은 1개만 유지
+ * - 재연결 시에도 한 번만 재구독하고, 등록된 모든 핸들러에 브로드캐스트합니다.
  * - key: destination(주소), 예) '/topic/rooms/1'
- * - value: { handler, headers, subscription }
- *   - handler: 메시지를 받았을 때 실행할 함수
- *   - headers: 구독 시 전달할 추가 헤더(보통은 비어둡니다)
- *   - subscription: 실제 STOMP 구독 객체(해제에 사용)
+ * - value: {
+ *     handlers: Set<Function>,     // 등록된 모든 콜백
+ *     headers: StompHeaders,       // 최초 등록 헤더 유지(여러 헤더가 섞이는 문제 방지)
+ *     subscription: StompSub|null, // 실제 STOMP 구독 객체
+ *     dispatcher: Function         // STOMP 수신 → 모든 핸들러 호출하는 래퍼
+ *   }
  */
 const subscriptions = new Map();
 
@@ -149,13 +153,12 @@ export const connect = () => {
       // - 네트워크 끊김 뒤에도 "같은 방 소식"을 계속 받기 위함입니다.
       subscriptions.forEach((entry, destination) => {
         try {
-          // STOMP 클라이언트에 다시 구독을 신청합니다.
+          // 재연결 시 단일 구독만 생성하고 dispatcher로 모든 핸들러에 전달
           const sub = next.subscribe(
             destination,
-            entry.handler,
+            entry.dispatcher,
             entry.headers || {}
           );
-          // 새로 받은 구독 객체를 저장해 두면, 나중에 해제할 수 있습니다.
           entry.subscription = sub;
         } catch {
           /* noop */
@@ -212,36 +215,61 @@ export const disconnect = async () => {
  * @returns {() => void} 구독 해제 함수
  */
 export const subscribe = (destination, handler, headers = {}) => {
-  // 인자가 올바른지 확인합니다.
   if (!destination || typeof handler !== 'function') return () => {};
 
-  // 1) 어떤 주소를 어떤 핸들러로 듣고 싶은지 메모리에 먼저 기록합니다.
-  const entry = { handler, headers, subscription: null };
-  subscriptions.set(destination, entry);
+  // 1) destination별 엔트리를 확보합니다. 없으면 생성합니다.
+  let entry = subscriptions.get(destination);
+  if (!entry) {
+    // 최초 등록 시 dispatcher는 모든 핸들러를 순회 호출하는 래퍼입니다.
+    const handlers = new Set();
+    const dispatcher = (message) => {
+      // 핸들러 실행 중 오류가 나더라도 다른 핸들러에 영향이 없도록 개별 try/catch
+      handlers.forEach((fn) => {
+        try {
+          fn(message);
+        } catch {
+          /* noop */
+        }
+      });
+    };
+    entry = {
+      handlers,
+      headers: headers || {},
+      subscription: null,
+      dispatcher,
+    };
+    subscriptions.set(destination, entry);
+  }
 
-  if (client?.connected) {
+  // 2) 핸들러를 추가합니다. 이미 존재하면 중복 추가하지 않습니다.
+  entry.handlers.add(handler);
+
+  // 3) 실제 STOMP 구독이 없다면 생성합니다(단일 구독 유지)
+  if (client?.connected && !entry.subscription) {
     try {
-      // 2) 이미 연결되어 있다면 즉시 STOMP 구독을 신청합니다.
-      const sub = client.subscribe(destination, handler, headers);
-      entry.subscription = sub;
+      entry.subscription = client.subscribe(
+        destination,
+        entry.dispatcher,
+        entry.headers || {}
+      );
     } catch {
       /* noop */
     }
   }
 
-  // 3) 구독 해제 함수 반환(컴포넌트 언마운트 시 반드시 호출해 주세요)
+  // 4) 구독 해제 함수: 이 핸들러만 제거하고, 모두 비면 실제 구독을 해제
   return () => {
     const current = subscriptions.get(destination);
-    if (current?.subscription) {
+    if (!current) return;
+    current.handlers.delete(handler);
+    if (current.handlers.size === 0) {
       try {
-        // 실제 STOMP 구독을 해제합니다.
-        current.subscription.unsubscribe();
+        current.subscription?.unsubscribe?.();
       } catch {
         /* noop */
       }
+      subscriptions.delete(destination);
     }
-    // 메모리에서도 이 구독 정보를 제거합니다.
-    subscriptions.delete(destination);
   };
 };
 

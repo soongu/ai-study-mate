@@ -44,6 +44,27 @@ export const useRoomStore = create((set) => ({
         [roomId]: participants,
       },
     })),
+
+  /** presence 브로드캐스트 수신 시 특정 참여자의 상태만 갱신합니다. */
+  updateParticipantStatus: (roomId, payload) =>
+    set((state) => {
+      const { providerId, userId, status } = payload || {};
+      const list = state.participantsByRoomId[roomId] || [];
+      const next = list.map((p) => {
+        const matchByProvider = providerId && p.providerId === providerId;
+        const matchByUser = userId != null && p.userId === userId;
+        if (matchByProvider || matchByUser) {
+          return { ...p, status };
+        }
+        return p;
+      });
+      return {
+        participantsByRoomId: {
+          ...state.participantsByRoomId,
+          [roomId]: next,
+        },
+      };
+    }),
 }));
 
 export default useRoomStore;

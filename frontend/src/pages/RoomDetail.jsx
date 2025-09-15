@@ -19,7 +19,11 @@ import { RoomService } from '../services/roomService.js';
 import { useRoomStore } from '../stores/roomStore.js';
 import { useToast } from '../components/toast/toastContext.js';
 import { useAuthStore } from '../stores/authStore.js';
-// 소켓 연결/구독은 채팅 탭을 열 때 적용(Commit 8 예정)
+// presence 구독 추가
+import {
+  connect as wsConnect,
+  subscribe as wsSubscribe,
+} from '../services/websocketService.js';
 
 const RoomDetail = () => {
   // 경로 파라미터(:id)를 숫자로 변환 (NaN 방지)
@@ -36,6 +40,9 @@ const RoomDetail = () => {
   );
   const participantsCache = useRoomStore((s) => s.participantsByRoomId);
   const setParticipants = useRoomStore((s) => s.setParticipants);
+  const updateParticipantStatus = useRoomStore(
+    (s) => s.updateParticipantStatus
+  );
   // 현재 로그인 사용자(내 역할/버튼 조건 판별에 사용)
   const me = useAuthStore((s) => s.user);
   const refreshMeSilent = useAuthStore((s) => s.refreshMeSilent);
@@ -101,6 +108,26 @@ const RoomDetail = () => {
       ignore = true;
     };
   }, [roomId, navigate, showToast, setParticipants, participantsCache]);
+
+  // presence 구독: 방 상세 뷰가 열려있는 동안 상태 변경을 실시간 반영
+  useEffect(() => {
+    if (!roomId) return;
+    wsConnect();
+    const unsubscribe = wsSubscribe(
+      `/topic/rooms/${roomId}/presence`,
+      (msg) => {
+        try {
+          const data = JSON.parse(msg.body);
+          if (data?.type === 'PRESENCE') {
+            updateParticipantStatus(roomId, data);
+          }
+        } catch (e) {
+          if (import.meta.env?.DEV) console.warn('presence parse error', e);
+        }
+      }
+    );
+    return () => unsubscribe?.();
+  }, [roomId, updateParticipantStatus]);
 
   // 참여하기
   // - 성공: 상세/목록 인원 수 동기화 → 참여자 재조회 → 성공 토스트
@@ -242,10 +269,35 @@ const RoomDetail = () => {
                           )}
                         </div>
                       </div>
-                      {/* 상태(ONLINE/STUDYING/BREAK/OFFLINE) 표시 */}
-                      <span className='text-xs text-gray-500'>
-                        {p.status || ''}
-                      </span>
+                      {/* 상태(ONLINE/STUDYING/BREAK/OFFLINE) 표시 (색상 배지) */}
+                      {(() => {
+                        const status = p.status || 'OFFLINE';
+                        const badge = {
+                          ONLINE: 'bg-green-50 text-green-700 border-green-200',
+                          STUDYING: 'bg-blue-50 text-blue-700 border-blue-200',
+                          BREAK:
+                            'bg-yellow-50 text-yellow-700 border-yellow-200',
+                          OFFLINE: 'bg-gray-200 text-gray-600 border-gray-300',
+                        };
+                        const dot = {
+                          ONLINE: 'bg-green-500',
+                          STUDYING: 'bg-blue-500',
+                          BREAK: 'bg-yellow-500',
+                          OFFLINE: 'bg-gray-400',
+                        };
+                        const badgeCls = `inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border ${
+                          badge[status] || badge.OFFLINE
+                        }`;
+                        const dotCls = `w-2 h-2 rounded-full mr-1 ${
+                          dot[status] || dot.OFFLINE
+                        }`;
+                        return (
+                          <span className={badgeCls}>
+                            <span className={dotCls} />
+                            {status}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </li>
                 ))}

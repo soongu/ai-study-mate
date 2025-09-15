@@ -32,12 +32,17 @@ const MessageList = ({ roomId, open }) => {
   const me = useAuthStore((s) => s.user);
   // 토스트(상단 중앙 안내 배너)
   const { show: showToast } = useToast();
+  // showToast 참조가 바뀌어도 구독 effect가 재실행되지 않도록 ref로 고정
+  const showToastRef = useRef(showToast);
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
   // 초기 히스토리 로딩 스피너 상태
   const [loading, setLoading] = useState(false);
   // 전역 스토어에서 방 메시지를 구독
   const selectedMessages = useChatStore((s) => s.messagesByRoomId[roomId]);
   const messages = useMemo(() => selectedMessages || [], [selectedMessages]);
-  
+
   const appendIfNew = useChatStore((s) => s.appendIfNew);
   const setInitial = useChatStore((s) => s.setInitialMessages);
   const clearRoom = useChatStore((s) => s.clearRoom);
@@ -77,27 +82,24 @@ const MessageList = ({ roomId, open }) => {
   // - 새 메시지가 오면 JSON 파싱 후 기존 messages 뒤에 이어 붙입니다.
   useEffect(() => {
     if (!open || !roomId) return;
-    // wsConnect: STOMP 클라이언트 활성화(이미 활성화되어 있으면 내부에서 무시)
     wsConnect();
-    // 방 토픽 구독: 새 메시지가 들어오면 리스트 뒤에 추가합니다.
     const unsubscribe = wsSubscribe(`/topic/rooms/${roomId}`, (msg) => {
       try {
         const data = JSON.parse(msg.body);
-        // 시스템 메시지(type: JOIN/LEAVE)는 가운데 라벨로 표시
         if (
           data &&
           data.type &&
           (data.type === 'JOIN' || data.type === 'LEAVE')
         ) {
-          // 작은 안내 토스트도 함께 표시하여 상단에서 눈에 띄게 알려줍니다.
+          // 토스트는 ref를 통해 호출(의존성으로 인해 재구독 방지)
           if (data.type === 'JOIN') {
-            showToast(data.content, {
+            showToastRef.current?.(data.content, {
               type: 'success',
               position: 'top-center',
               duration: 1800,
             });
           } else if (data.type === 'LEAVE') {
-            showToast(data.content, {
+            showToastRef.current?.(data.content, {
               type: 'info',
               position: 'top-center',
               duration: 1800,
@@ -112,14 +114,13 @@ const MessageList = ({ roomId, open }) => {
           appendIfNew(roomId, data);
         }
       } catch {
-        // 파싱 실패 시 무시(서버 포맷 변경 등 예외 상황)
+        // noop
       }
     });
-    // cleanup: 컴포넌트 언마운트/닫힘 시 구독 해제(중복 수신 방지)
     return () => {
       unsubscribe?.();
     };
-  }, [open, roomId, showToast]);
+  }, [open, roomId, appendIfNew]);
 
   // 3) 자동 스크롤
   // - 리스트 변경 시 항상 하단으로 내려줍니다(최신 메시지가 보이도록)

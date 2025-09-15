@@ -47,13 +47,21 @@ public class WebSocketEventsListener {
         var principal = accessor.getUser();
         String providerId = (principal != null && principal.getName() != null) ? principal.getName() : "anonymous";
         if (roomId != null) {
-            log.info("SUBSCRIBE room={}, providerId={}", roomId, providerId);
-            boolean firstJoin = registry.handleSubscribe(accessor.getSessionId(), accessor.getSubscriptionId(), roomId, providerId);
-            if (firstJoin) {
-                messagingTemplate.convertAndSend("/topic/rooms/" + roomId,
-                    new SystemMessagePayload("JOIN", providerId, usersService.findMeByProviderId(providerId).getNickname() + " 님이 입장했습니다."));
-                // Presence: 첫 입장 시 ONLINE 전송
-                presenceService.online(roomId, providerId);
+            log.info("SUBSCRIBE room={}, providerId={}, dest={}", roomId, providerId, destination);
+            // 채팅 토픽: /topic/rooms/{id} (정확히 일치)
+            if (isChatTopic(destination, roomId)) {
+                boolean firstJoin = registry.handleSubscribe(accessor.getSessionId(), accessor.getSubscriptionId(), roomId, providerId);
+                if (firstJoin) {
+                    messagingTemplate.convertAndSend("/topic/rooms/" + roomId,
+                        new SystemMessagePayload("JOIN", providerId, usersService.findMeByProviderId(providerId).getNickname() + " 님이 입장했습니다."));
+                }
+            }
+            // 프레즌스 토픽: /topic/rooms/{id}/presence → presence 레지스트리 카운트 기반으로 ONLINE 전송
+            if (isPresenceTopic(destination, roomId)) {
+                boolean firstPresence = registry.handlePresenceSubscribe(accessor.getSessionId(), accessor.getSubscriptionId(), roomId, providerId);
+                if (firstPresence) {
+                    presenceService.online(roomId, providerId);
+                }
             }
         }
     }
@@ -62,12 +70,19 @@ public class WebSocketEventsListener {
     public void onUnsubscribe(SessionUnsubscribeEvent event) {
         // 구독 해제 이벤트(대부분 페이지 이동/탭 닫기 전에 발생)
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
+        // 1) presence 구독 해제 처리 → presence 기준 마지막이면 OFFLINE 브로드캐스트
+        var presenceLeave = registry.handlePresenceUnsubscribe(accessor.getSessionId(), accessor.getSubscriptionId());
+        if (presenceLeave != null && presenceLeave.lastLeave() && presenceLeave.providerId() != null) {
+            presenceService.offline(presenceLeave.roomId(), presenceLeave.providerId());
+        }
+
+        // 2) 채팅 구독 해제 처리 → 채팅 기준 마지막이면 LEAVE 시스템 메시지 브로드캐스트
         var result = registry.handleUnsubscribe(accessor.getSessionId(), accessor.getSubscriptionId());
         if (result != null && result.lastLeave() && result.providerId() != null) {
+            // 채팅 토픽 기준 마지막 퇴장 → 시스템 LEAVE만 전송
             messagingTemplate.convertAndSend("/topic/rooms/" + result.roomId(),
                 new SystemMessagePayload("LEAVE", result.providerId(), usersService.findMeByProviderId(result.providerId()).getNickname() + " 님이 퇴장했습니다."));
-            // Presence: 마지막 퇴장 시 OFFLINE 전송
-            presenceService.offline(result.roomId(), result.providerId());
+            // presence OFFLINE은 세션 종료나 TTL로 처리 (채팅 패널 닫힘은 OFFLINE 아님)
         }
     }
 
@@ -77,8 +92,11 @@ public class WebSocketEventsListener {
         String sessionId = event.getSessionId();
         var results = registry.handleDisconnect(sessionId);
         results.stream().filter(r -> r.lastLeave() && r.providerId() != null).forEach(r -> {
+            // 세션 단위로 해당 사용자가 방을 완전히 떠난 경우
             messagingTemplate.convertAndSend("/topic/rooms/" + r.roomId(),
                 new SystemMessagePayload("LEAVE", r.providerId(), usersService.findMeByProviderId(r.providerId()).getNickname() + " 님이 퇴장했습니다."));
+            // 세션 종료 시에는 presence OFFLINE도 함께 알림
+            presenceService.offline(r.roomId(), r.providerId());
         });
     }
 
@@ -95,6 +113,18 @@ public class WebSocketEventsListener {
             }
         } catch (Exception ignored) {}
         return null;
+    }
+
+    // '/topic/rooms/{roomId}' 과 정확히 일치하는지 확인(서브경로 없음)
+    private boolean isChatTopic(String destination, Long roomId) {
+        if (destination == null || roomId == null) return false;
+        return ("/topic/rooms/" + roomId).equals(destination);
+    }
+
+    // '/topic/rooms/{roomId}/presence' 패턴인지 확인
+    private boolean isPresenceTopic(String destination, Long roomId) {
+        if (destination == null || roomId == null) return false;
+        return ("/topic/rooms/" + roomId + "/presence").equals(destination);
     }
 
     /**
