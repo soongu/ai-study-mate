@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import MessageItem from './MessageItem.jsx';
 import MessageListSkeleton from './MessageListSkeleton.jsx';
 import { MessageService } from '../../services/messageService.js';
 import { useAuthStore } from '../../stores/authStore.js';
+import { useChatStore } from '../../stores/chatStore.js';
 import MessageInput from './MessageInput.jsx';
 import MessageSystemItem from './MessageSystemItem.jsx';
 import { useToast } from '../toast/toastContext.js';
@@ -33,8 +34,13 @@ const MessageList = ({ roomId, open }) => {
   const { show: showToast } = useToast();
   // 초기 히스토리 로딩 스피너 상태
   const [loading, setLoading] = useState(false);
-  // 화면에 보여줄 메시지 배열(오래된 → 최신 순)
-  const [messages, setMessages] = useState([]);
+  // 전역 스토어에서 방 메시지를 구독
+  const selectedMessages = useChatStore((s) => s.messagesByRoomId[roomId]);
+  const messages = useMemo(() => selectedMessages || [], [selectedMessages]);
+  
+  const appendIfNew = useChatStore((s) => s.appendIfNew);
+  const setInitial = useChatStore((s) => s.setInitialMessages);
+  const clearRoom = useChatStore((s) => s.clearRoom);
   // 리스트 맨 아래를 가리키는 ref(자동 스크롤 목적지)
   const bottomRef = useRef(null);
 
@@ -53,7 +59,7 @@ const MessageList = ({ roomId, open }) => {
         // 최근 메시지(최신순) 페이지를 가져옵니다.
         const list = await MessageService.getRecent(roomId, 0, 20);
         // 화면에서는 오래된 → 최신 순으로 보여주기 위해 역순으로 세팅합니다.
-        if (!ignore) setMessages(list.reverse());
+        if (!ignore) setInitial(roomId, list.reverse());
       } finally {
         // 로딩 상태 해제도 언마운트 후에는 호출하지 않습니다.
         if (!ignore) setLoading(false);
@@ -64,7 +70,7 @@ const MessageList = ({ roomId, open }) => {
       // cleanup: 이후 비동기 콜백이 도착해도 setState가 실행되지 않도록 차단
       ignore = true;
     };
-  }, [open, roomId]);
+  }, [open, roomId, setInitial]);
 
   // 2) 실시간 구독 시작
   // - STOMP 연결을 보장(wsConnect)하고, "/topic/rooms/{roomId}"를 구독합니다.
@@ -97,12 +103,13 @@ const MessageList = ({ roomId, open }) => {
               duration: 1800,
             });
           }
-          setMessages((prev) => [
-            ...prev,
-            { id: `sys-${Date.now()}`, system: true, text: data.content },
-          ]);
+          appendIfNew(roomId, {
+            id: `sys-${Date.now()}`,
+            system: true,
+            text: data.content,
+          });
         } else {
-          setMessages((prev) => [...prev, data]);
+          appendIfNew(roomId, data);
         }
       } catch {
         // 파싱 실패 시 무시(서버 포맷 변경 등 예외 상황)
@@ -121,6 +128,13 @@ const MessageList = ({ roomId, open }) => {
     // 최신 메시지가 보이도록 리스트 하단으로 스크롤 이동
     bottomRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [open, messages]);
+
+  // 언마운트 시 방 상태 정리(선택)
+  useEffect(() => {
+    return () => {
+      if (roomId) clearRoom(roomId);
+    };
+  }, [roomId, clearRoom]);
 
   if (!open) return null;
 
