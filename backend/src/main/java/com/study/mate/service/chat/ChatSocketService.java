@@ -1,16 +1,13 @@
 package com.study.mate.service.chat;
 
 import com.study.mate.dto.request.ChatSendRequest;
-import com.study.mate.dto.response.ChatMessageResponse;
 import com.study.mate.entity.ChatMessage;
 import com.study.mate.entity.StudyRoom;
 import com.study.mate.entity.User;
-import com.study.mate.repository.ChatMessageRepository;
 import com.study.mate.repository.StudyRoomRepository;
 import com.study.mate.repository.RoomParticipantRepository;
 import com.study.mate.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,10 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class ChatSocketService {
 
-    // STOMP 구독자에게 메시지를 보내는 스프링 헬퍼(우체부 역할)
-    private final SimpMessagingTemplate messagingTemplate;
-    // 채팅 메시지를 DB에 저장/조회하는 JPA 저장소
-    private final ChatMessageRepository chatMessageRepository;
+    private final ChatBroadcastService chatBroadcastService;
+    private final ChatMessageWriteService chatMessageWriteService;
     // 방(StudyRoom) 정보를 DB에서 찾는 저장소
     private final StudyRoomRepository studyRoomRepository;
     // 보낸 사람(User) 정보를 DB에서 찾는 저장소
@@ -69,17 +64,12 @@ public class ChatSocketService {
         if (!joined) return;
 
         // 4) 메시지 저장: 누가(room/sender) 무엇을(content) 말했는지 기록합니다.
-        ChatMessage saved = chatMessageRepository.save(ChatMessage.builder()
-                .room(room)
-                .sender(sender)
-                .content(request.content())
-                .build());
+        ChatMessage saved = chatMessageWriteService.save(room, sender, request.content());
 
         // 5) 브로드캐스트: 같은 방 토픽을 구독한 모두에게 전송합니다.
         //    - 구독 주소 규칙: /topic/rooms/{roomId}
         //    - 프론트는 client.subscribe('/topic/rooms/1', handler) 형태로 받습니다.
-        ChatMessageResponse payload = ChatMessageResponse.from(saved);
-        messagingTemplate.convertAndSend("/topic/rooms/" + roomId, payload);
+        chatBroadcastService.broadcastToRoom(roomId, saved);
     }
 }
 
