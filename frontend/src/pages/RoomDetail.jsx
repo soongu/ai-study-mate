@@ -12,7 +12,7 @@
  * - 상세 정보는 항상 최신값을 받기 위해 매 진입 시 조회합니다.
  * - 백엔드 미구현/에러 시 참여자 목록은 안전하게 빈 배열([])로 폴백합니다.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import MessageList from '../components/room/MessageList.jsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import { RoomService } from '../services/roomService.js';
@@ -23,6 +23,7 @@ import { useAuthStore } from '../stores/authStore.js';
 import {
   connect as wsConnect,
   subscribe as wsSubscribe,
+  send as wsSend,
 } from '../services/websocketService.js';
 
 const RoomDetail = () => {
@@ -32,9 +33,7 @@ const RoomDetail = () => {
   const navigate = useNavigate();
   const { show: showToast } = useToast();
 
-  // 전역 Store 액션/상태
-  // - updateRoomParticipantsCount: 목록 카드의 인원 배지를 상세와 맞춰 갱신
-  // - participantsByRoomId / setParticipants: 참여자 목록 캐시 관리
+  // 전역 Store 액션/상태 (shallow로 안정화)
   const updateRoomParticipantsCount = useRoomStore(
     (s) => s.updateRoomParticipantsCount
   );
@@ -55,11 +54,12 @@ const RoomDetail = () => {
   const [detail, setDetail] = useState(null);
   const [joining, setJoining] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [updatingPresence, setUpdatingPresence] = useState(false);
 
   // 참여자 목록: 전역 캐시에서 현재 roomId에 해당하는 리스트를 가져옵니다.
   const cachedParticipants = useMemo(
     () => participantsCache[roomId] || [],
-    [participantsCache, roomId]
+    [participantsCache[roomId]]
   );
   // 내 참여 정보: userId로 캐시 목록에서 내 항목을 찾습니다.
   const myParticipant = useMemo(
@@ -75,9 +75,7 @@ const RoomDetail = () => {
   // 채팅 탭 열림 여부
   const [chatOpen, setChatOpen] = useState(false);
 
-  // 초기 로딩 및 roomId 변경 시 데이터 로드
-  // - 상세 정보: 항상 최신 조회
-  // - 참여자 목록: 캐시가 없을 때만 조회 (RoomService가 실패 시 []로 폴백)
+  // 초기 로딩 및 roomId 변경 시 데이터 로드 (의존성 안정화)
   useEffect(() => {
     let ignore = false;
     const fetchDetail = async () => {
@@ -107,9 +105,14 @@ const RoomDetail = () => {
     return () => {
       ignore = true;
     };
-  }, [roomId, navigate, showToast, setParticipants, participantsCache]);
+  }, [roomId]); // 의존성을 roomId만으로 제한
 
   // presence 구독: 방 상세 뷰가 열려있는 동안 상태 변경을 실시간 반영
+  const updateParticipantStatusRef = useRef(updateParticipantStatus);
+  useEffect(() => {
+    updateParticipantStatusRef.current = updateParticipantStatus;
+  }, [updateParticipantStatus]);
+
   useEffect(() => {
     if (!roomId) return;
     wsConnect();
@@ -119,7 +122,7 @@ const RoomDetail = () => {
         try {
           const data = JSON.parse(msg.body);
           if (data?.type === 'PRESENCE') {
-            updateParticipantStatus(roomId, data);
+            updateParticipantStatusRef.current(roomId, data);
           }
         } catch (e) {
           if (import.meta.env?.DEV) console.warn('presence parse error', e);
@@ -127,7 +130,56 @@ const RoomDetail = () => {
       }
     );
     return () => unsubscribe?.();
-  }, [roomId, updateParticipantStatus]);
+  }, [roomId]);
+
+  // 하트비트: 방 상세 페이지가 열려 있고 참여자인 동안만 주기 전송
+  useEffect(() => {
+    if (!roomId || !isParticipant) return;
+    let intervalId = null;
+    const start = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (intervalId) return;
+      intervalId = setInterval(() => {
+        wsSend(`/app/rooms/${roomId}/presence/heartbeat`, {});
+      }, 15000);
+    };
+    const stop = () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') start();
+      else stop();
+    };
+    start();
+    window.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', start);
+    window.addEventListener('blur', stop);
+    return () => {
+      stop();
+      window.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', start);
+      window.removeEventListener('blur', stop);
+    };
+  }, [roomId, isParticipant]);
+
+  // 내 상태(ONLINE/STUDYING/BREAK) 변경 전송
+  const handleChangeMyStatus = async (next) => {
+    if (!roomId || !isParticipant || updatingPresence) return;
+    try {
+      setUpdatingPresence(true);
+      const ok = wsSend(`/app/rooms/${roomId}/presence/update`, {
+        status: next,
+      });
+      if (!ok) {
+        showToast('연결 상태를 확인해주세요.', { type: 'error' });
+      }
+    } finally {
+      setUpdatingPresence(false);
+    }
+  };
 
   // 참여하기
   // - 성공: 상세/목록 인원 수 동기화 → 참여자 재조회 → 성공 토스트
@@ -356,7 +408,33 @@ const RoomDetail = () => {
               </div>
             )}
           </div>
-          <div className='md:col-span-1 space-y-3'></div>
+          <div className='md:col-span-1 space-y-3'>
+            {/* 나의 상태 토글: 참여자만 노출 */}
+            {isParticipant && (
+              <div className='card p-3'>
+                <p className='text-sm font-medium text-gray-900'>나의 상태</p>
+                <div className='mt-2 flex flex-wrap gap-2'>
+                  {['ONLINE', 'STUDYING', 'BREAK'].map((s) => (
+                    <button
+                      key={s}
+                      type='button'
+                      className={`px-3 py-1 rounded-full border text-xs ${
+                        myParticipant?.status === s
+                          ? 'bg-gray-900 text-white border-gray-900'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      } disabled:opacity-60`}
+                      disabled={updatingPresence}
+                      onClick={() => handleChangeMyStatus(s)}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                <p className='mt-2 text-[11px] text-gray-500'>
+                  탭이 활성화된 동안 15초 간격으로 하트비트를 전송합니다.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

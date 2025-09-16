@@ -46,6 +46,13 @@ const MessageList = ({ roomId, open }) => {
   const appendIfNew = useChatStore((s) => s.appendIfNew);
   const setInitial = useChatStore((s) => s.setInitialMessages);
   const clearRoom = useChatStore((s) => s.clearRoom);
+  // appendIfNew와 setInitial 참조가 바뀌어도 effect가 재실행되지 않도록 ref로 고정
+  const appendIfNewRef = useRef(appendIfNew);
+  const setInitialRef = useRef(setInitial);
+  useEffect(() => {
+    appendIfNewRef.current = appendIfNew;
+    setInitialRef.current = setInitial;
+  }, [appendIfNew, setInitial]);
   // 리스트 맨 아래를 가리키는 ref(자동 스크롤 목적지)
   const bottomRef = useRef(null);
 
@@ -64,7 +71,7 @@ const MessageList = ({ roomId, open }) => {
         // 최근 메시지(최신순) 페이지를 가져옵니다.
         const list = await MessageService.getRecent(roomId, 0, 20);
         // 화면에서는 오래된 → 최신 순으로 보여주기 위해 역순으로 세팅합니다.
-        if (!ignore) setInitial(roomId, list.reverse());
+        if (!ignore) setInitialRef.current(roomId, list.reverse());
       } finally {
         // 로딩 상태 해제도 언마운트 후에는 호출하지 않습니다.
         if (!ignore) setLoading(false);
@@ -75,7 +82,7 @@ const MessageList = ({ roomId, open }) => {
       // cleanup: 이후 비동기 콜백이 도착해도 setState가 실행되지 않도록 차단
       ignore = true;
     };
-  }, [open, roomId, setInitial]);
+  }, [open, roomId]);
 
   // 2) 실시간 구독 시작
   // - STOMP 연결을 보장(wsConnect)하고, "/topic/rooms/{roomId}"를 구독합니다.
@@ -105,13 +112,13 @@ const MessageList = ({ roomId, open }) => {
               duration: 1800,
             });
           }
-          appendIfNew(roomId, {
+          appendIfNewRef.current(roomId, {
             id: `sys-${Date.now()}`,
             system: true,
             text: data.content,
           });
         } else {
-          appendIfNew(roomId, data);
+          appendIfNewRef.current(roomId, data);
         }
       } catch {
         // noop
@@ -120,7 +127,7 @@ const MessageList = ({ roomId, open }) => {
     return () => {
       unsubscribe?.();
     };
-  }, [open, roomId, appendIfNew]);
+  }, [open, roomId]);
 
   // 3) 자동 스크롤
   // - 리스트 변경 시 항상 하단으로 내려줍니다(최신 메시지가 보이도록)
