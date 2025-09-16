@@ -4,6 +4,15 @@ spring:
   profiles:
     active: dev
 
+  ai:
+    openai:
+      base-url: https://generativelanguage.googleapis.com/v1beta/openai/
+      api-key: ${GEMINI_API_KEY}
+      chat:
+        completions-path: /chat/completions
+        options:
+          model: ${GEMINI_MODEL}
+
 # 공통 설정
 jwt:
   secret: ${JWT_SECRET}

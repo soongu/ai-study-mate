@@ -7,6 +7,10 @@ plugins {
 group = 'com.study'
 version = '0.0.1-SNAPSHOT'
 
+ext {
+	set('springAiVersion', '1.0.0-M5')
+}
+
 java {
 	sourceCompatibility = '17'
 }
@@ -19,7 +23,10 @@ configurations {
 
 repositories {
 	mavenCentral()
+	maven { url 'https://repo.spring.io/milestone' }
 }
+
+// no BOM needed when using explicit version on starters
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -38,6 +45,9 @@ dependencies {
 	
 	// WebSocket
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	
+	// Spring AI (Google AI via OpenAI compatible API)
+	implementation "org.springframework.ai:spring-ai-openai-spring-boot-starter:${springAiVersion}"
 	
 	// JWT
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
