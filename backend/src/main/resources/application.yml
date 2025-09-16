@@ -12,6 +12,13 @@ spring:
         completions-path: /chat/completions
         options:
           model: ${GEMINI_MODEL}
+          temperature: 0.2
+          max-tokens: 1024
+    retry:
+      on-client-errors: true
+      on-http-codes: 429,503
+      initial-interval: 500ms
+      max-attempts: 3
 
 # 공통 설정
 jwt:
