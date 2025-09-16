@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore.js';
+import {
+  getSSEStatus,
+  addSSEListener,
+  removeSSEListener,
+} from '../../services/notificationService.js';
 
 const AppHeader = () => {
   const navigate = useNavigate();
@@ -8,6 +13,7 @@ const AppHeader = () => {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
+  const [sseStatus, setSseStatus] = useState(getSSEStatus());
   const menuRef = useRef(null);
 
   const handleLogout = async () => {
@@ -24,6 +30,30 @@ const AppHeader = () => {
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
+
+  // 🔔 SSE 상태 업데이트 리스너 등록
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const updateStatus = () => {
+      setSseStatus(getSSEStatus());
+    };
+
+    // SSE 이벤트 리스너 등록
+    const connectedListenerId = addSSEListener('connected', updateStatus);
+    const errorListenerId = addSSEListener('error', updateStatus);
+    const heartbeatListenerId = addSSEListener('heartbeat', updateStatus);
+
+    // 주기적 상태 업데이트
+    const interval = setInterval(updateStatus, 5000);
+
+    return () => {
+      removeSSEListener('connected', connectedListenerId);
+      removeSSEListener('error', errorListenerId);
+      removeSSEListener('heartbeat', heartbeatListenerId);
+      clearInterval(interval);
+    };
+  }, [isAuthenticated]);
 
   const avatarUrl = user?.profileImageUrl || undefined;
   const nickname = user?.nickname || '사용자';
@@ -78,6 +108,28 @@ const AppHeader = () => {
             className='hidden sm:inline text-gray-600 hover:text-gray-900 rounded-md px-3 py-2 transition-colors hover:bg-gray-100'>
             스터디룸
           </Link>
+
+          {/* 🔔 SSE 연결 상태 표시 (인증된 사용자만) */}
+          {isAuthenticated && (
+            <div className='flex items-center'>
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  sseStatus.isConnected
+                    ? 'bg-green-500'
+                    : sseStatus.reconnectAttempts > 0
+                    ? 'bg-yellow-500 animate-pulse'
+                    : 'bg-red-500'
+                }`}
+                title={
+                  sseStatus.isConnected
+                    ? '실시간 알림 연결됨'
+                    : sseStatus.reconnectAttempts > 0
+                    ? `재연결 중... (${sseStatus.reconnectAttempts}/${sseStatus.maxReconnectAttempts})`
+                    : '실시간 알림 연결 안됨'
+                }
+              />
+            </div>
+          )}
 
           {isAuthenticated && (
             <div

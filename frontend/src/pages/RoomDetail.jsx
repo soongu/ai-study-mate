@@ -25,6 +25,11 @@ import {
   subscribe as wsSubscribe,
   send as wsSend,
 } from '../services/websocketService.js';
+// SSE 알림 리스너 추가
+import {
+  addSSEListener,
+  removeSSEListener,
+} from '../services/notificationService.js';
 
 const RoomDetail = () => {
   // 경로 파라미터(:id)를 숫자로 변환 (NaN 방지)
@@ -131,6 +136,68 @@ const RoomDetail = () => {
     );
     return () => unsubscribe?.();
   }, [roomId]);
+
+  // 🔔 SSE 알림 리스너: 현재 방과 관련된 알림을 받아서 토스트로 표시
+  useEffect(() => {
+    if (!roomId) return;
+
+    const handleNotification = (notification) => {
+      // 현재 방과 관련된 알림만 처리
+      if (notification.roomId !== roomId) return;
+
+      // 알림 타입별로 토스트 메시지 표시
+      switch (notification.type) {
+        case 'CHAT_MESSAGE':
+          // 채팅 메시지는 이미 WebSocket으로 실시간 표시되므로 토스트는 생략
+          // (탭이 백그라운드일 때만 브라우저 알림으로 표시됨)
+          break;
+
+        case 'USER_JOIN':
+          if (notification.providerId !== me?.providerId) {
+            showToast(
+              `👋 ${notification.nickname}님이 입장했습니다`,
+              'success'
+            );
+          }
+          break;
+
+        case 'USER_LEAVE':
+          if (notification.providerId !== me?.providerId) {
+            showToast(`👋 ${notification.nickname}님이 퇴장했습니다`, 'info');
+          }
+          break;
+
+        case 'PRESENCE_UPDATE':
+          if (notification.providerId !== me?.providerId) {
+            const statusText =
+              notification.data?.status === 'STUDYING'
+                ? '학습 중'
+                : notification.data?.status === 'BREAK'
+                ? '휴식 중'
+                : notification.data?.status === 'ONLINE'
+                ? '온라인'
+                : '상태 변경';
+            showToast(
+              `📊 ${notification.nickname}님이 ${statusText}로 변경했습니다`,
+              'info'
+            );
+          }
+          break;
+
+        default:
+          // 기타 알림은 메시지 그대로 표시
+          showToast(notification.message, 'info');
+      }
+    };
+
+    // SSE 알림 리스너 등록
+    const listenerId = addSSEListener('notification', handleNotification);
+
+    return () => {
+      // 컴포넌트 언마운트 시 리스너 제거
+      removeSSEListener('notification', listenerId);
+    };
+  }, [roomId, me?.providerId, showToast]);
 
   // 하트비트: 방 상세 페이지가 열려 있고 참여자인 동안만 주기 전송
   useEffect(() => {

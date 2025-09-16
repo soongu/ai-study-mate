@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../stores/authStore.js';
 import { RoomService } from '../services/roomService.js';
 import RoomListGrid from '../components/room/RoomListGrid.jsx';
+import NotificationStatus from '../components/notification/NotificationStatus.jsx';
 import { useNavigate } from 'react-router-dom';
 
 const Dashboard = () => {
@@ -60,7 +61,7 @@ const Dashboard = () => {
         </div>
 
         {/* 통계 카드 */}
-        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8'>
           <div className='card'>
             <p className='text-sm text-gray-500'>누적 학습 시간</p>
             <p className='mt-1 text-2xl font-semibold text-gray-900'>
@@ -78,6 +79,10 @@ const Dashboard = () => {
             <p className='mt-1 text-2xl font-semibold text-gray-900'>
               꾸준함 유지하기 ✅
             </p>
+          </div>
+          {/* 🔔 알림 상태 카드 */}
+          <div className='lg:col-span-1'>
+            <NotificationStatus />
           </div>
         </div>
 
