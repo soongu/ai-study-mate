@@ -7,6 +7,9 @@ import org.springframework.stereotype.Service;
 
 import com.study.mate.dto.request.ai.CodeReviewRequest;
 import com.study.mate.dto.response.ai.CodeReviewResponse;
+import com.study.mate.dto.request.ai.QuestionRequest;
+import com.study.mate.dto.request.ai.ConceptRequest;
+import com.study.mate.dto.response.ai.ChatResponse;
 import com.study.mate.exception.BusinessException;
 import com.study.mate.exception.ErrorCode;
 
@@ -73,6 +76,39 @@ public class AIService {
             // 공통 예외 처리 체계로 위임합니다.
             // GlobalExceptionHandler 가 ErrorCode 에 맞춰 응답을 생성합니다.
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "AI 코드 리뷰 중 오류가 발생했습니다.");
+        }
+    }
+
+    // 간단 Q&A (한글 시스템 프롬프트 간소화)
+    public ChatResponse answerQuestion(final QuestionRequest req) {
+        try {
+            String response = chatClient
+                    .prompt()
+                    .system(s -> s.text("""
+                      너는 한국어로 대답하는 친절한 선생님이야.
+                        
+                        """))
+                    .user(u -> u.text(req.question()))
+                    .call()
+                    .content();
+            return new ChatResponse(response);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "AI 질문 처리 중 오류가 발생했습니다.");
+        }
+    }
+
+    // 개념 설명
+    public ChatResponse explainConcept(final ConceptRequest req) {
+        try {
+            String response = chatClient
+                    .prompt()
+                    .system(s -> s.text("너는 초보자에게 쉽게 설명하는 한국어 튜터야."))
+                    .user(u -> u.text("개념: " + req.concept() + "\n수준: " + (req.level() == null ? "beginner" : req.level())))
+                    .call()
+                    .content();
+            return new ChatResponse(response);
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "AI 개념 설명 중 오류가 발생했습니다.");
         }
     }
 }
