@@ -2,6 +2,9 @@ package com.study.mate.config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.List;
+
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
@@ -13,6 +16,9 @@ import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 import com.study.mate.service.UsersService;
 import com.study.mate.service.chat.UserSessionRegistry;
 import com.study.mate.service.presence.PresenceService;
+import com.study.mate.service.notification.NotificationService;
+import com.study.mate.dto.NotificationDto;
+import com.study.mate.repository.RoomParticipantRepository;
 
 /**
  * WebSocket 이벤트 리스너
@@ -34,6 +40,8 @@ public class WebSocketEventsListener {
   private final UsersService usersService;
   private final UserSessionRegistry registry;
   private final PresenceService presenceService;
+  private final NotificationService notificationService;
+  private final RoomParticipantRepository roomParticipantRepository;
 
     @EventListener
     public void onSubscribe(SessionSubscribeEvent event) {
@@ -52,8 +60,14 @@ public class WebSocketEventsListener {
             if (isChatTopic(destination, roomId)) {
                 boolean firstJoin = registry.handleSubscribe(accessor.getSessionId(), accessor.getSubscriptionId(), roomId, providerId);
                 if (firstJoin) {
+                    String nickname = usersService.findMeByProviderId(providerId).getNickname();
                     messagingTemplate.convertAndSend("/topic/rooms/" + roomId,
-                        new SystemMessagePayload("JOIN", providerId, usersService.findMeByProviderId(providerId).getNickname() + " 님이 입장했습니다."));
+                        new SystemMessagePayload("JOIN", providerId, nickname + " 님이 입장했습니다."));
+                    
+                    // SSE 알림: 다른 참여자들에게 입장 알림 전송
+                    List<String> roomParticipants = roomParticipantRepository.findParticipantProviderIds(roomId);
+                    NotificationDto joinNotification = NotificationDto.userJoin(roomId, providerId, nickname);
+                    notificationService.sendToRoomParticipants(roomParticipants, joinNotification);
                 }
             }
             // 프레즌스 토픽: /topic/rooms/{id}/presence → presence 레지스트리 카운트 기반으로 ONLINE 전송
@@ -80,8 +94,14 @@ public class WebSocketEventsListener {
         var result = registry.handleUnsubscribe(accessor.getSessionId(), accessor.getSubscriptionId());
         if (result != null && result.lastLeave() && result.providerId() != null) {
             // 채팅 토픽 기준 마지막 퇴장 → 시스템 LEAVE만 전송
+            String nickname = usersService.findMeByProviderId(result.providerId()).getNickname();
             messagingTemplate.convertAndSend("/topic/rooms/" + result.roomId(),
-                new SystemMessagePayload("LEAVE", result.providerId(), usersService.findMeByProviderId(result.providerId()).getNickname() + " 님이 퇴장했습니다."));
+                new SystemMessagePayload("LEAVE", result.providerId(), nickname + " 님이 퇴장했습니다."));
+            
+            // SSE 알림: 다른 참여자들에게 퇴장 알림 전송
+            java.util.List<String> roomParticipants = roomParticipantRepository.findParticipantProviderIds(result.roomId());
+            NotificationDto leaveNotification = NotificationDto.userLeave(result.roomId(), result.providerId(), nickname);
+            notificationService.sendToRoomParticipants(roomParticipants, leaveNotification);
             // presence OFFLINE은 세션 종료나 TTL로 처리 (채팅 패널 닫힘은 OFFLINE 아님)
         }
     }
@@ -93,8 +113,15 @@ public class WebSocketEventsListener {
         var results = registry.handleDisconnect(sessionId);
         results.stream().filter(r -> r.lastLeave() && r.providerId() != null).forEach(r -> {
             // 세션 단위로 해당 사용자가 방을 완전히 떠난 경우
+            String nickname = usersService.findMeByProviderId(r.providerId()).getNickname();
             messagingTemplate.convertAndSend("/topic/rooms/" + r.roomId(),
-                new SystemMessagePayload("LEAVE", r.providerId(), usersService.findMeByProviderId(r.providerId()).getNickname() + " 님이 퇴장했습니다."));
+                new SystemMessagePayload("LEAVE", r.providerId(), nickname + " 님이 퇴장했습니다."));
+            
+            // SSE 알림: 다른 참여자들에게 퇴장 알림 전송
+            List<String> roomParticipants = roomParticipantRepository.findParticipantProviderIds(r.roomId());
+            NotificationDto leaveNotification = NotificationDto.userLeave(r.roomId(), r.providerId(), nickname);
+            notificationService.sendToRoomParticipants(roomParticipants, leaveNotification);
+            
             // 세션 종료 시에는 presence OFFLINE도 함께 알림
             presenceService.offline(r.roomId(), r.providerId());
         });

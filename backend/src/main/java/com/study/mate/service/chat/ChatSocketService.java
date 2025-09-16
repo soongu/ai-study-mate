@@ -7,7 +7,12 @@ import com.study.mate.entity.User;
 import com.study.mate.repository.StudyRoomRepository;
 import com.study.mate.repository.RoomParticipantRepository;
 import com.study.mate.repository.UserRepository;
+import com.study.mate.service.notification.NotificationService;
+import com.study.mate.dto.NotificationDto;
 import lombok.RequiredArgsConstructor;
+
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +40,7 @@ public class ChatSocketService {
 
     private final ChatBroadcastService chatBroadcastService;
     private final ChatMessageWriteService chatMessageWriteService;
+    private final NotificationService notificationService;
     // 방(StudyRoom) 정보를 DB에서 찾는 저장소
     private final StudyRoomRepository studyRoomRepository;
     // 보낸 사람(User) 정보를 DB에서 찾는 저장소
@@ -70,6 +76,17 @@ public class ChatSocketService {
         //    - 구독 주소 규칙: /topic/rooms/{roomId}
         //    - 프론트는 client.subscribe('/topic/rooms/1', handler) 형태로 받습니다.
         chatBroadcastService.broadcastToRoom(roomId, saved);
+        
+        // 6) SSE 알림: 탭이 비활성화된 사용자들에게 브라우저 알림 전송
+        //    - 같은 방의 다른 참여자들에게 새 채팅 메시지 알림
+        List<String> roomParticipants = roomParticipantRepository.findParticipantProviderIds(roomId);
+        NotificationDto chatNotification = NotificationDto.chatMessage(
+            roomId, 
+            sender.getProviderId(), 
+            sender.getNickname(), 
+            request.content()
+        );
+        notificationService.sendToRoomParticipants(roomParticipants, chatNotification);
     }
 }
 
