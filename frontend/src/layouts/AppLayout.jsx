@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import AppHeader from '../components/layout/AppHeader.jsx';
 import AppFooter from '../components/layout/AppFooter.jsx';
+import AIAssistantPanel from '../components/ai/AIAssistantPanel.jsx';
+import AIAssistantFab from '../components/ai/AIAssistantFab.jsx';
 import ToastProvider from '../components/toast/ToastProvider.jsx';
 import { useAuthStore } from '../stores/authStore.js';
 import {
@@ -50,6 +52,8 @@ const AppLayout = () => {
     }
   }, [isAuthenticated, user]); // 인증 상태가 변경될 때마다 실행
 
+  const [showAI, setShowAI] = React.useState(false);
+
   return (
     <ToastProvider>
       <div className='min-h-screen flex flex-col'>
@@ -60,6 +64,8 @@ const AppLayout = () => {
         </main>
 
         <AppFooter />
+        {showAI && <AIAssistantPanel />}
+        <AIAssistantFab onClick={() => setShowAI((v) => !v)} />
       </div>
     </ToastProvider>
   );
