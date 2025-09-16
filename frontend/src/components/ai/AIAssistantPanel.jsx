@@ -2,6 +2,7 @@
 // - 드래그로 위치를 옮길 수 있고
 // - 접기/열기 토글로 최소화할 수 있습니다.
 import React, { useRef, useState, useEffect } from 'react';
+import useAIStore from '../../stores/aiStore';
 
 const AIAssistantPanel = () => {
   // 패널의 실제 DOM 요소에 접근하기 위한 참조입니다.
@@ -13,6 +14,9 @@ const AIAssistantPanel = () => {
 
   // 패널의 현재 화면 위치(왼쪽에서 x, 위에서 y 픽셀)를 상태로 저장합니다.
   const [position, setPosition] = useState({ x: 24, y: 24 });
+
+  // 메시지 리스트 컨테이너 참조 (자동 스크롤 하단 이동용)
+  const listRef = useRef(null);
 
   // 드래그하는 중인지 여부와 드래그 시작 지점과의 오프셋을 저장합니다.
   // useRef를 쓰는 이유: 드래그 중에는 값이 매우 자주 바뀌는데,
@@ -57,6 +61,26 @@ const AIAssistantPanel = () => {
     document.removeEventListener('mouseup', onMouseUp);
   };
 
+  // Zustand 상태와 액션 가져오기
+  const { messages, isLoading, error, sendQuestion } = useAIStore();
+
+  // 입력 상태
+  const [input, setInput] = useState('');
+
+  // 메시지가 추가될 때마다 하단으로 자동 스크롤합니다.
+  useEffect(() => {
+    if (!listRef.current) return;
+    listRef.current.scrollTop = listRef.current.scrollHeight;
+  }, [messages.length]);
+
+  const onSubmit = (e) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text) return;
+    sendQuestion(text);
+    setInput('');
+  };
+
   return (
     // 실제로 화면에 보이는 패널 박스입니다. 'fixed'는 스크롤과 무관하게 화면 위치를 고정합니다.
     <div
@@ -81,11 +105,60 @@ const AIAssistantPanel = () => {
         </button>
       </div>
       {!isMinimized && (
-        // 본문 영역. 다음 커밋들에서 실제 채팅 UI가 들어갈 공간입니다.
-        <div className='p-3 h-[calc(100%-40px)]'>
-          <div className='text-sm text-gray-600'>
-            여기에 채팅 UI가 들어갑니다
+        // 본문 영역: 메시지 리스트 + 입력폼
+        <div className='p-3 h-[calc(100%-40px)] flex flex-col gap-2'>
+          <div
+            ref={listRef}
+            className='flex-1 overflow-auto space-y-2 pr-1'>
+            {messages.length === 0 && (
+              <div className='text-xs text-gray-500'>
+                처음 질문을 입력해보세요.
+              </div>
+            )}
+            {messages.map((m) => {
+              const isUser = m.role === 'user';
+              return (
+                <div
+                  key={m.id}
+                  className={
+                    'flex w-full ' + (isUser ? 'justify-end' : 'justify-start')
+                  }>
+                  <div
+                    className={
+                      (isUser
+                        ? 'bg-indigo-600 text-white rounded-br-sm'
+                        : 'bg-gray-100 text-gray-900 rounded-bl-sm') +
+                      ' max-w-[80%] px-3 py-2 rounded-2xl whitespace-pre-wrap break-words'
+                    }>
+                    {m.content}
+                  </div>
+                </div>
+              );
+            })}
           </div>
+
+          {error && (
+            <div className='text-xs text-red-600 border border-red-200 bg-red-50 p-2 rounded'>
+              {error}
+            </div>
+          )}
+
+          <form
+            onSubmit={onSubmit}
+            className='flex items-center gap-2'>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder='질문을 입력하세요'
+              className='flex-1 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300'
+            />
+            <button
+              type='submit'
+              disabled={isLoading}
+              className='px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60'>
+              {isLoading ? '전송중...' : '보내기'}
+            </button>
+          </form>
         </div>
       )}
     </div>
