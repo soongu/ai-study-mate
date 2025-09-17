@@ -1,6 +1,8 @@
 package com.study.mate.service.ai;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.ai.chat.client.ChatClient;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -25,6 +27,7 @@ import com.study.mate.exception.ErrorCode;
 // - 사용자 메시지: 실제 사용자 입력(여기서는 코드/컨텍스트)을 전달합니다.
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AIService {
 
     // Spring 이 자동 주입하는 ChatClient 입니다.
@@ -56,10 +59,10 @@ public class AIService {
             "스키마 및 제약:\n" +
             "{\n" +
             "  \"summary\": string,                       // 1~300자, 한국어, 핵심 요약\n" +
-            "  \"scores\": {                             // 각 0~100 정수, 없으면 null\n" +
-            "    \"security\": number|null,\n" +
-            "    \"performance\": number|null,\n" +
-            "    \"readability\": number|null\n" +
+            "  \"scores\": {                             // 각 0~100 정수, null 금지\n" +
+            "    \"security\": number,                   // 모르면 보수적으로 추정(예: 50)\n" +
+            "    \"performance\": number,\n" +
+            "    \"readability\": number\n" +
             "  },\n" +
             "  \"issues\": [                             // 최대 10개\n" +
             "    { \"title\": string,                    // 1~120자\n" +
@@ -67,7 +70,7 @@ public class AIService {
             "      \"description\": string,              // 1~300자, 구체적 근거 포함\n" +
             "      \"lineHints\": [string]               // 예: '라인 42', 모르면 비우기\n" +
             "    }\n" +
-            "  ] ,\n" +
+            "  ],\n" +
             "  \"suggestions\": [                        // 최대 10개, 실행 가능한 개선안\n" +
             "    { \"title\": string, \"description\": string }\n" +
             "  ],\n" +
@@ -76,7 +79,9 @@ public class AIService {
             "}\n\n" +
             "출력 규칙:\n" +
             "- 한국어만 사용, 키 이름은 정확히 유지(summary/scores/issues/suggestions/quickWins/breakingChanges).\n" +
-            "- 불확실하면 해당 필드는 null 또는 빈 배열로. 임의의 키 추가 금지.\n" +
+            "- scores.security/performance/readability 는 반드시 0~100 정수(반올림). null 금지.\n" +
+            "- 불확실하더라도 점수는 반드시 채워라. 합리적 추정(예: 50) 사용 가능.\n" +
+            "- 배열 필드는 없으면 빈 배열로. 임의의 키 추가 금지.\n" +
             "- 문자열은 불필요한 수식어를 제거하고 간결하게. 줄바꿈/백틱/마크다운 금지.\n" +
             "- 보안/성능/품질을 균형 있게 평가. 추가 가이드: " + extraGuide + "\n" +
             "- 코드 원문을 길게 복사하지 말고, 필요 시 핵심 라인만 lineHints로 제시.\n"
@@ -115,12 +120,13 @@ public class AIService {
                     .content();
 
             // 3) JSON 파싱 시도 → 실패 시 원문을 요약으로 반환
+            log.info("response: {}", response);
             CodeReviewResponse parsed = parseReviewJson(response);
             if (parsed != null) return parsed;
             return new CodeReviewResponse(
                     response,
                     new CodeReviewResponse.Scores(null, null, null),
-                    new String[0], new String[0], new String[0], new String[0]
+                    new String[0], new String[0], new String[0], new String[0], new CodeReviewResponse.IssueDetail[0]
             );
         } catch (BusinessException e) {
             throw e;
@@ -147,8 +153,8 @@ public class AIService {
         return sb.toString();
     }
 
-    // 모델 응답 문자열에서 summary/issues/suggestions 을 추출합니다.
-    // - 응답이 확장 스키마(객체 배열)여도 문자열 배열로 유연하게 변환합니다.
+    // 모델 응답 문자열에서 summary/scores/issues/suggestions 등을 추출합니다.
+    // - issues 는 문자열 배열과 객체 배열을 모두 지원하며, issueDetails 로 구조화하여 제공합니다.
     private CodeReviewResponse parseReviewJson(String raw) {
         try {
             String json = extractJson(raw);
@@ -161,12 +167,15 @@ public class AIService {
                     node.path("scores").path("performance").isNumber() ? node.path("scores").path("performance").asInt() : null,
                     node.path("scores").path("readability").isNumber() ? node.path("scores").path("readability").asInt() : null
             );
-            String[] issues = toStringArray(om, node.path("issues"));
+            JsonNode issuesNode = node.path("issues");
+            String[] issues = toStringArray(om, issuesNode);
+            CodeReviewResponse.IssueDetail[] details = toIssueDetails(issuesNode);
             String[] suggestions = toStringArray(om, node.path("suggestions"));
             String[] quickWins = toStringArray(om, node.path("quickWins"));
             String[] breaking = toStringArray(om, node.path("breakingChanges"));
-            return new CodeReviewResponse(summary, scores, issues, suggestions, quickWins, breaking);
+            return new CodeReviewResponse(summary, scores, issues, suggestions, quickWins, breaking, details);
         } catch (Exception ignore) {
+            log.warn("parseReviewJson error: ", ignore);
             return null;
         }
     }
@@ -198,13 +207,98 @@ public class AIService {
         }
     }
 
+    // issues 객체 배열을 IssueDetail[] 로 변환합니다.
+    private CodeReviewResponse.IssueDetail[] toIssueDetails(JsonNode node) {
+        if (!node.isArray()) return new CodeReviewResponse.IssueDetail[0];
+        CodeReviewResponse.IssueDetail[] arr = new CodeReviewResponse.IssueDetail[node.size()];
+        for (int i = 0; i < node.size(); i++) {
+            JsonNode it = node.get(i);
+            String title = it.path("title").asText("");
+            String description = it.path("description").asText("");
+            String severity = it.path("severity").asText("");
+            String[] lineHints;
+            if (it.path("lineHints").isArray()) {
+                lineHints = new String[it.path("lineHints").size()];
+                for (int j = 0; j < it.path("lineHints").size(); j++) {
+                    lineHints[j] = it.path("lineHints").get(j).asText("");
+                }
+            } else {
+                lineHints = new String[0];
+            }
+            arr[i] = new CodeReviewResponse.IssueDetail(title, description, severity, lineHints);
+        }
+        return arr;
+    }
+
     private String extractJson(String raw) {
         if (raw == null) return null;
-        Matcher m = JSON_BLOCK.matcher(raw);
+        String cleaned = stripCodeFence(raw);
+        // 1) 균형 잡힌 JSON 블록 시도(부분 응답일 경우 보정)
+        String balanced = findBalancedJsonOrFix(cleaned);
+        if (balanced != null) return balanced.trim();
+        Matcher m = JSON_BLOCK.matcher(cleaned);
         if (m.find()) return m.group().trim();
-        String t = raw.trim();
+        String t = cleaned.trim();
         if (t.startsWith("{") && t.endsWith("}")) return t;
         return null;
+    }
+
+    // 부분 JSON 응답이 와도 가능한 한 복구합니다.
+    // - 문자열 내부의 괄호는 무시하고, 중괄호 깊이를 기준으로 블록을 추출합니다.
+    // - 끝까지 0으로 닫히지 않으면 남은 깊이만큼 '}' 를 보충합니다.
+    private String findBalancedJsonOrFix(String raw) {
+        int start = raw.indexOf('{');
+        if (start < 0) return null;
+        int depth = 0;
+        boolean inString = false;
+        boolean escape = false;
+        for (int i = start; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (inString) {
+                if (escape) {
+                    escape = false;
+                } else if (c == '\\') {
+                    escape = true;
+                } else if (c == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (c == '"') {
+                inString = true;
+                continue;
+            }
+            if (c == '{') {
+                depth++;
+            } else if (c == '}') {
+                depth--;
+                if (depth == 0) {
+                    return raw.substring(start, i + 1);
+                }
+            }
+        }
+        if (depth > 0) {
+            StringBuilder sb = new StringBuilder(raw.substring(start));
+            for (int k = 0; k < depth; k++) sb.append('}');
+            return sb.toString();
+        }
+        return null;
+    }
+
+    // ```json ... ``` 또는 ``` ... ``` 코드펜스를 제거
+    private String stripCodeFence(String raw) {
+        String s = raw.trim();
+        if (s.startsWith("```") ) {
+            int firstNl = s.indexOf('\n');
+            if (firstNl > 0) {
+                String afterLabel = s.substring(firstNl + 1);
+                int lastFence = afterLabel.lastIndexOf("```");
+                if (lastFence >= 0) return afterLabel.substring(0, lastFence);
+                return afterLabel;
+            }
+            return s.replace("```", "");
+        }
+        return s;
     }
 
     // 간단 Q&A (한글 시스템 프롬프트 간소화)

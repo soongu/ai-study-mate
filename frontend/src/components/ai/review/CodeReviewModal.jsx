@@ -23,6 +23,9 @@ const CodeReviewModal = ({ open, onClose }) => {
   const [loadingStep, setLoadingStep] = useState(0);
   const [estTokens, setEstTokens] = useState(null);
 
+  // lifted form state to persist across tabs
+  const [form, setForm] = useState({ language: 'auto', code: '', context: '' });
+
   useEffect(() => {
     if (!loading) return;
     setLoadingStep(0);
@@ -107,8 +110,11 @@ const CodeReviewModal = ({ open, onClose }) => {
           {tab === TABS.REQUEST ? (
             <ReviewRequestForm
               loading={loading}
+              value={form}
+              onChange={setForm}
               onSubmit={async ({ language, code, context }) => {
                 setLoading(true);
+                // 유지: 결과를 초기화하지 않고 탭 전환 시 입력값 보존
                 setResult(null);
                 // 대략적인 토큰 추정(코드+컨텍스트 합)
                 setEstTokens(
@@ -128,7 +134,36 @@ const CodeReviewModal = ({ open, onClose }) => {
                   if (!data || typeof data !== 'object') {
                     throw new Error('서버 응답 형식이 올바르지 않습니다.');
                   }
-                  setResult(data);
+                  setResult({
+                    ...data,
+                    onFocusLine: (line) => {
+                      // REQUEST 탭으로 이동 후 textarea 선택/스크롤
+                      setTab(TABS.REQUEST);
+                      setTimeout(() => {
+                        const ta = document.getElementById(
+                          'review-code-textarea'
+                        );
+                        if (!ta) return;
+                        const codeText = ta.value || '';
+                        const lines = codeText.split('\n');
+                        const target = Math.max(
+                          1,
+                          Math.min(line, lines.length)
+                        );
+                        let start = 0;
+                        for (let i = 0; i < target - 1; i++)
+                          start += lines[i].length + 1;
+                        const end = start + (lines[target - 1]?.length ?? 0);
+                        try {
+                          ta.focus();
+                          ta.setSelectionRange(start, end);
+                        } catch {
+                          /* ignore */
+                        }
+                        ta.scrollTop = Math.max(0, (target - 3) * 18);
+                      }, 0);
+                    },
+                  });
                   setTab(TABS.RESULT);
                 } catch (e) {
                   const errMsg = e?.message || '요청에 실패했습니다.';

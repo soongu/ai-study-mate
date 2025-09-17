@@ -7,15 +7,23 @@ package com.study.mate.dto.response.ai;
 // - suggestions: 개선 제안(간단 문자열 리스트)
 // - quickWins: 빠르게 적용 가능한 개선 아이디어
 // - breakingChanges: 파급이 큰 변경사항 경고
+// - issueDetails: 각 이슈의 상세(제목/설명/심각도/라인 힌트)
 public record CodeReviewResponse(
         String summary,
         Scores scores,
         String[] issues,
         String[] suggestions,
         String[] quickWins,
-        String[] breakingChanges
+        String[] breakingChanges,
+        IssueDetail[] issueDetails
 ) {
     public record Scores(Integer security, Integer performance, Integer readability) {}
+    public record IssueDetail(
+            String title,
+            String description,
+            String severity,
+            String[] lineHints
+    ) {}
 }
 
 

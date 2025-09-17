@@ -33,9 +33,7 @@ export function connectSSE() {
 
   try {
     // 1️⃣ EventSource 객체 생성 (브라우저의 SSE 클라이언트)
-    const sseUrl = `${
-      import.meta.env.VITE_API_BASE_URL
-    }/api/notifications/subscribe`;
+    const sseUrl = `/api/notifications/subscribe`;
     eventSource = new EventSource(sseUrl, {
       withCredentials: true, // 쿠키(JWT 토큰) 포함해서 요청
     });
@@ -141,7 +139,6 @@ export function disconnectSSE() {
   }
 
   isConnected = false;
-  reconnectAttempts = 0;
 
   console.log('✅ SSE 연결 종료 완료');
 }
@@ -446,16 +443,13 @@ export function getSSEStatus() {
  */
 export async function testSSEConnection() {
   try {
-    const response = await fetch(
-      `${import.meta.env.VITE_API_BASE_URL}/api/notifications/test`,
-      {
-        method: 'POST',
-        credentials: 'include', // 쿠키 포함
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    const response = await fetch(`/api/notifications/test`, {
+      method: 'POST',
+      credentials: 'include', // 쿠키 포함
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);

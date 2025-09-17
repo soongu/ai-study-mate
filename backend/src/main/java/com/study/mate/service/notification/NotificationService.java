@@ -110,7 +110,8 @@ public class NotificationService {
                 .name("connected")  // 이벤트 이름 (프론트엔드에서 addEventListener로 받음)
                 .data("SSE 연결이 성공했습니다.")); // 실제 데이터
         } catch (IOException e) {
-            log.warn("SSE 연결 완료 이벤트 전송 실패: providerId={}", providerId, e);
+            // 클라이언트 단절 등 예상 가능한 상황에서는 스택트레이스를 남기지 않습니다.
+            log.debug("SSE 연결 완료 이벤트 전송 실패(클라이언트 단절 가능): providerId={}", providerId);
             removeEmitter(providerId, emitter); // 실패하면 연결 제거
         }
         
@@ -130,7 +131,8 @@ public class NotificationService {
         
         // 연결 오류 발생 시 (네트워크 문제 등)
         emitter.onError((ex) -> {
-            log.warn("SSE 연결 오류 발생: providerId={}", providerId, ex);
+            // Broken pipe / ClientAbortException 등은 정상 흐름에서 자주 발생하므로 과도한 로그를 피합니다.
+            log.info("SSE 연결 오류 발생: providerId={} (연결 정리)", providerId);
             removeEmitter(providerId, emitter); // 연결 목록에서 제거
         });
         
@@ -180,7 +182,8 @@ public class NotificationService {
                 return false; // 성공하면 리스트에서 제거하지 않음 (연결 유지)
                 
             } catch (IOException e) {
-                log.warn("알림 전송 실패 (연결이 이미 끊어짐): providerId={}", providerId, e);
+                // Broken pipe 등 예측 가능한 예외는 스택 출력 없이 정리만 수행
+                log.debug("알림 전송 실패 (연결 끊김): providerId={}", providerId);
                 return true; // 실패하면 리스트에서 제거 (끊어진 연결 정리)
             }
         });
@@ -374,7 +377,8 @@ public class NotificationService {
                     .data(testData));  // 테스트 데이터
                 return false; // 성공하면 제거하지 않음
             } catch (IOException e) {
-                log.debug("테스트 메시지 전송 실패 (연결이 끊어짐): providerId={}", providerId, e);
+                // 테스트 전송 시에도 스택트레이스를 남기지 않습니다.
+                log.debug("테스트 메시지 전송 실패 (연결 끊김): providerId={}", providerId);
                 return true; // 실패하면 리스트에서 제거
             }
         });
