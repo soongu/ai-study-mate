@@ -3,6 +3,9 @@
 // - 접기/열기 토글로 최소화할 수 있습니다.
 import React, { useRef, useState, useEffect } from 'react';
 import useAIStore from '../../stores/aiStore';
+// react-markdown: 문자열을 안전하게 마크다운으로 렌더링(GFM 플러그인과 함께 사용)
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const AIAssistantPanel = () => {
   // 패널의 실제 DOM 요소에 접근하기 위한 참조입니다.
@@ -128,9 +131,62 @@ const AIAssistantPanel = () => {
                       (isUser
                         ? 'bg-indigo-600 text-white rounded-br-sm'
                         : 'bg-gray-100 text-gray-900 rounded-bl-sm') +
-                      ' max-w-[80%] px-3 py-2 rounded-2xl whitespace-pre-wrap break-words'
+                      ' max-w-[80%] px-3 py-2 rounded-2xl break-words'
                     }>
-                    {m.content}
+                    {isUser ? (
+                      <div className='whitespace-pre-wrap text-sm'>
+                        {m.content}
+                      </div>
+                    ) : (
+                      // react-markdown로 AI 메시지를 마크다운으로 렌더링합니다.
+                      // - prose: Tailwind Typography로 기본 마크다운 스타일 적용
+                      // - 코드블록/인라인코드 가독성 향상을 위한 유틸 클래스 포함
+                      // - 보안: 기본적으로 HTML 태그는 렌더링되지 않으므로 스크립트 삽입 위험이 낮습니다.
+                      <div className='prose prose-sm max-w-none prose-pre:my-0 prose-code:before:content-[none] prose-code:after:content-[none]'>
+                        <ReactMarkdown
+                          // GFM(표, 체크박스 목록, 테이블, 취소선 등) 지원
+                          remarkPlugins={[remarkGfm]}
+                          // 특정 요소의 렌더 방식을 커스터마이징합니다.
+                          // - code: 인라인 코드와 코드펜스를 구분하여 각각 스타일 적용
+                          // - a: 외부 링크는 새 탭으로 열고 기본 밑줄/색상을 지정
+                          components={{
+                            code({ inline, className, children, ...props }) {
+                              if (inline) {
+                                return (
+                                  <code
+                                    className='px-1 py-[1px] rounded bg-gray-200 text-gray-800 font-mono text-[12px]'
+                                    {...props}>
+                                    {children}
+                                  </code>
+                                );
+                              }
+                              return (
+                                <pre className='bg-gray-900 text-gray-100 text-xs rounded p-2 overflow-auto'>
+                                  <code
+                                    className={className}
+                                    {...props}>
+                                    {children}
+                                  </code>
+                                </pre>
+                              );
+                            },
+                            a({ href, children, ...props }) {
+                              return (
+                                <a
+                                  href={href}
+                                  target='_blank'
+                                  rel='noreferrer'
+                                  className='underline text-indigo-600'
+                                  {...props}>
+                                  {children}
+                                </a>
+                              );
+                            },
+                          }}>
+                          {m.content || ''}
+                        </ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
