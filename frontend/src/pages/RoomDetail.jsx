@@ -18,6 +18,8 @@ import RoomHeader from '../components/room/RoomHeader.jsx';
 import ParticipantsList from '../components/room/ParticipantsList.jsx';
 import RoomActions from '../components/room/RoomActions.jsx';
 import StatusToggle from '../components/room/StatusToggle.jsx';
+import CodeReviewLauncher from '../components/ai/review/CodeReviewLauncher.jsx';
+import CodeReviewModal from '../components/ai/review/CodeReviewModal.jsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import { RoomService } from '../services/roomService.js';
 import { useRoomStore } from '../stores/roomStore.js';
@@ -82,6 +84,7 @@ const RoomDetail = () => {
 
   // 채팅 탭 열림 여부
   const [chatOpen, setChatOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   // 초기 로딩 및 roomId 변경 시 데이터 로드 (의존성 안정화)
   // navigate/setParticipants/showToast 는 ref 로 캡처해 의존성 변화를 막습니다.
@@ -364,6 +367,9 @@ const RoomDetail = () => {
             </span>
           }
         />
+        <div className='mt-3'>
+          <CodeReviewLauncher onClick={() => setReviewOpen(true)} />
+        </div>
 
         <div className='mt-8 grid grid-cols-1 md:grid-cols-3 gap-6'>
           <div className='md:col-span-2'>
@@ -416,6 +422,10 @@ const RoomDetail = () => {
           </div>
         </div>
       </div>
+      <CodeReviewModal
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+      />
     </div>
   );
 };
