@@ -76,8 +76,8 @@ const AIAssistantPanel = () => {
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [messages.length]);
 
-  const onSubmit = (e) => {
-    e.preventDefault();
+  // 전송을 한 곳에서만 처리하여 중복 전송을 방지합니다.
+  const handleSend = () => {
     const text = input.trim();
     if (!text) return;
     sendQuestion(text);
@@ -109,13 +109,19 @@ const AIAssistantPanel = () => {
       </div>
       {!isMinimized && (
         // 본문 영역: 메시지 리스트 + 입력폼
-        <div className='p-3 h-[calc(100%-40px)] flex flex-col gap-2'>
+        <div
+          className='p-3 h-[calc(100%-40px)] flex flex-col gap-2'
+          aria-label='AI 대화 영역'>
           <div
             ref={listRef}
-            className='flex-1 overflow-auto space-y-2 pr-1'>
+            className='flex-1 overflow-auto space-y-2 pr-1'
+            role='log'
+            aria-live='polite'
+            aria-relevant='additions'
+            aria-label='AI와의 대화 메시지 목록'>
             {messages.length === 0 && (
               <div className='text-xs text-gray-500'>
-                처음 질문을 입력해보세요.
+                처음 질문을 입력해보세요. 예) "배열과 리스트 차이 설명해줘"
               </div>
             )}
             {messages.map((m) => {
@@ -200,17 +206,40 @@ const AIAssistantPanel = () => {
           )}
 
           <form
-            onSubmit={onSubmit}
-            className='flex items-center gap-2'>
-            <input
+            onSubmit={(e) => e.preventDefault()}
+            className='flex items-start gap-2'
+            aria-label='AI 질문 입력 폼'>
+            <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder='질문을 입력하세요'
+              onKeyDown={(e) => {
+                // 한글 등 IME 조합 중 엔터는 전송하지 않습니다.
+                const composing = e.isComposing || e.nativeEvent?.isComposing;
+                if (composing) return;
+                // 일부 브라우저(IME 조합)에서 keyCode 229가 들어오는 경우도 전송하지 않습니다.
+                if (e.keyCode === 229) return;
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              aria-label='AI 질문 입력'
+              aria-describedby='ai-input-help'
+              placeholder='질문을 입력하세요 (Shift+Enter 줄바꿈)'
+              rows={2}
               className='flex-1 border rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300'
             />
+            <span
+              id='ai-input-help'
+              className='sr-only'>
+              Enter 키로 전송, Shift+Enter는 줄바꿈입니다.
+            </span>
             <button
-              type='submit'
+              type='button'
+              onClick={handleSend}
               disabled={isLoading}
+              aria-label='질문 전송'
+              title='질문 전송'
               className='px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60'>
               {isLoading ? '전송중...' : '보내기'}
             </button>
