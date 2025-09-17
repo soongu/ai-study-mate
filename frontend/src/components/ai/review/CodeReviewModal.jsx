@@ -49,6 +49,7 @@ const CodeReviewModal = ({ open, onClose }) => {
       className='fixed inset-0 z-50 flex items-center justify-center'
       role='dialog'
       aria-modal='true'
+      aria-label='코드 리뷰 모달'
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose?.();
       }}>
@@ -66,13 +67,18 @@ const CodeReviewModal = ({ open, onClose }) => {
           </button>
         </div>
         <div className='px-4 pt-3'>
-          <div className='flex items-center gap-2 text-sm'>
+          <div
+            className='flex items-center gap-2 text-sm'
+            role='tablist'
+            aria-label='코드 리뷰 탭'>
             <button
               className={`px-3 py-1.5 rounded ${
                 tab === TABS.REQUEST
                   ? 'bg-gray-900 text-white'
                   : 'bg-gray-100 hover:bg-gray-200'
               }`}
+              role='tab'
+              aria-selected={tab === TABS.REQUEST}
               onClick={() => setTab(TABS.REQUEST)}>
               요청
             </button>
@@ -82,10 +88,16 @@ const CodeReviewModal = ({ open, onClose }) => {
                   ? 'bg-gray-900 text-white'
                   : 'bg-gray-100 hover:bg-gray-200'
               }`}
+              role='tab'
+              aria-selected={tab === TABS.RESULT}
               onClick={() => setTab(TABS.RESULT)}>
               결과
             </button>
           </div>
+          <p className='mt-1 text-[11px] text-gray-500'>
+            요청 탭에서 코드/컨텍스트를 입력하고 제출하면 결과 탭에서 분석
+            결과를 볼 수 있어요.
+          </p>
         </div>
         <div className='relative p-4 h-[60vh] overflow-auto'>
           {loading && (

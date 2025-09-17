@@ -40,7 +40,12 @@ const SeverityDot = ({ level }) => {
     low: 'bg-gray-400',
   };
   const color = map[(level || '').toLowerCase()] || 'bg-gray-300';
-  return <span className={`inline-block w-2 h-2 rounded-full ${color}`} />;
+  return (
+    <span
+      className={`inline-block w-2 h-2 rounded-full ${color}`}
+      title='심각도: critical > high > medium > low'
+    />
+  );
 };
 
 const IssueList = ({ title, issues, onItemClick }) => (
@@ -68,7 +73,9 @@ const IssueList = ({ title, issues, onItemClick }) => (
               <SeverityDot level={it.severity} />
               <span>{it.title || '-'}</span>
               {it.severity && (
-                <span className='ml-auto text-[11px] px-1.5 py-0.5 rounded-full border bg-gray-50'>
+                <span
+                  className='ml-auto text-[11px] px-1.5 py-0.5 rounded-full border bg-gray-50'
+                  title='심각도가 높을수록 우선적으로 수정하세요.'>
                   {String(it.severity).toUpperCase()}
                 </span>
               )}
@@ -87,6 +94,10 @@ const IssueList = ({ title, issues, onItemClick }) => (
         ))}
       </ul>
     )}
+    <p className='mt-1 text-[11px] text-gray-500'>
+      항목을 클릭하면 해당 라인으로 이동해요. 설명을 먼저 읽고 수정 방향을
+      잡아보세요.
+    </p>
   </div>
 );
 
@@ -112,6 +123,10 @@ const ReviewResult = ({ result, loading }) => {
       <div className='p-3 border rounded bg-white'>
         <p className='text-sm text-gray-800 whitespace-pre-wrap'>
           {summary || '-'}
+        </p>
+        <p className='mt-1 text-[11px] text-gray-500'>
+          요약은 핵심만 담겨 있어요. 상세한 근거는 아래 문제점의 설명을
+          확인하세요.
         </p>
       </div>
       <div className='flex items-center flex-wrap gap-2'>
