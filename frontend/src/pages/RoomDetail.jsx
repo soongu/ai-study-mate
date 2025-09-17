@@ -14,6 +14,10 @@
  */
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import MessageList from '../components/room/MessageList.jsx';
+import RoomHeader from '../components/room/RoomHeader.jsx';
+import ParticipantsList from '../components/room/ParticipantsList.jsx';
+import RoomActions from '../components/room/RoomActions.jsx';
+import StatusToggle from '../components/room/StatusToggle.jsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import { RoomService } from '../services/roomService.js';
 import { useRoomStore } from '../stores/roomStore.js';
@@ -62,10 +66,9 @@ const RoomDetail = () => {
   const [updatingPresence, setUpdatingPresence] = useState(false);
 
   // 참여자 목록: 전역 캐시에서 현재 roomId에 해당하는 리스트를 가져옵니다.
-  const cachedParticipants = useMemo(
-    () => participantsCache[roomId] || [],
-    [participantsCache[roomId]]
-  );
+  const cachedParticipants = useMemo(() => {
+    return participantsCache[roomId] || [];
+  }, [participantsCache, roomId]);
   // 내 참여 정보: userId로 캐시 목록에서 내 항목을 찾습니다.
   const myParticipant = useMemo(
     () =>
@@ -81,6 +84,20 @@ const RoomDetail = () => {
   const [chatOpen, setChatOpen] = useState(false);
 
   // 초기 로딩 및 roomId 변경 시 데이터 로드 (의존성 안정화)
+  // navigate/setParticipants/showToast 는 ref 로 캡처해 의존성 변화를 막습니다.
+  const navigateRef = useRef(navigate);
+  const setParticipantsRef = useRef(setParticipants);
+  const showToastRef = useRef(showToast);
+  useEffect(() => {
+    navigateRef.current = navigate;
+  }, [navigate]);
+  useEffect(() => {
+    setParticipantsRef.current = setParticipants;
+  }, [setParticipants]);
+  useEffect(() => {
+    showToastRef.current = showToast;
+  }, [showToast]);
+
   useEffect(() => {
     let ignore = false;
     const fetchDetail = async () => {
@@ -90,14 +107,15 @@ const RoomDetail = () => {
         if (!ignore) {
           setDetail(d);
         }
-        // 참여자 캐시가 없으면 로드 시도
         if (!participantsCache[roomId]) {
           const list = await RoomService.getParticipants(roomId);
-          setParticipants(roomId, list);
+          setParticipantsRef.current(roomId, list);
         }
       } catch {
-        showToast('방 정보를 불러오지 못했습니다.', { type: 'error' });
-        navigate('/app/rooms');
+        showToastRef.current('방 정보를 불러오지 못했습니다.', {
+          type: 'error',
+        });
+        navigateRef.current('/app/rooms');
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -105,12 +123,14 @@ const RoomDetail = () => {
     if (Number.isFinite(roomId)) {
       fetchDetail();
     } else {
-      navigate('/app/rooms');
+      navigateRef.current('/app/rooms');
     }
     return () => {
       ignore = true;
     };
-  }, [roomId]); // 의존성을 roomId만으로 제한
+    // roomId 만 변경될 때만 재실행 → 채팅 구독 안정화
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
 
   // presence 구독: 방 상세 뷰가 열려있는 동안 상태 변경을 실시간 반영
   const updateParticipantStatusRef = useRef(updateParticipantStatus);
@@ -118,9 +138,10 @@ const RoomDetail = () => {
     updateParticipantStatusRef.current = updateParticipantStatus;
   }, [updateParticipantStatus]);
 
+  // presence 구독은 roomId가 바뀔 때에만 생성/해제됩니다.
   useEffect(() => {
     if (!roomId) return;
-    wsConnect();
+    wsConnect(); // 이미 연결되어 있으면 no-op
     const unsubscribe = wsSubscribe(
       `/topic/rooms/${roomId}/presence`,
       (msg) => {
@@ -328,178 +349,69 @@ const RoomDetail = () => {
   return (
     <div className='min-h-[calc(100vh-10rem)] bg-gray-50'>
       <div className='container mx-auto px-4 py-8'>
-        {/* 뒤로가기(목록으로) */}
-        <button
-          type='button'
-          className='text-sm text-gray-600 hover:text-gray-900'
-          onClick={() => navigate('/app/rooms')}>
-          ← 목록으로
-        </button>
-        <div className='mt-3 flex items-center justify-between'>
-          <div>
-            <h1 className='text-2xl md:text-3xl font-bold text-gray-900'>
-              {detail.title}
-            </h1>
-            <p className='mt-1 text-sm text-gray-600'>{detail.description}</p>
-          </div>
-          {/* 현재 인원/정원 배지 */}
-          <span
-            className={`shrink-0 inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium border ${
-              isFull
-                ? 'bg-red-50 text-red-700 border-red-200'
-                : 'bg-green-50 text-green-700 border-green-200'
-            }`}>
-            인원 {detail.participantCount ?? 0}/{detail.maxParticipants ?? 4}
-          </span>
-        </div>
+        <RoomHeader
+          title={detail.title}
+          description={detail.description}
+          onBack={() => navigate('/app/rooms')}
+          participantBadge={
+            <span
+              className={`shrink-0 inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium border ${
+                isFull
+                  ? 'bg-red-50 text-red-700 border-red-200'
+                  : 'bg-green-50 text-green-700 border-green-200'
+              }`}>
+              인원 {detail.participantCount ?? 0}/{detail.maxParticipants ?? 4}
+            </span>
+          }
+        />
 
         <div className='mt-8 grid grid-cols-1 md:grid-cols-3 gap-6'>
           <div className='md:col-span-2'>
             <h2 className='text-lg font-semibold text-gray-900'>참여자</h2>
-            {cachedParticipants.length === 0 ? (
-              <p className='mt-2 text-sm text-gray-600'>
-                참여자가 아직 없어요.
-              </p>
-            ) : (
-              <ul className='mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3'>
-                {cachedParticipants.map((p) => (
-                  <li
-                    key={p.id}
-                    className='card w-full'>
-                    <div className='flex items-center justify-between'>
-                      <div className='flex items-center gap-3'>
-                        {/* 프로필 이미지(없으면 회색 플레이스홀더) */}
-                        {p.profileImageUrl ? (
-                          <img
-                            src={p.profileImageUrl}
-                            alt={p.nickname || '사용자'}
-                            className='w-9 h-9 rounded-full object-cover'
-                          />
-                        ) : (
-                          <div className='w-9 h-9 rounded-full bg-gray-200' />
-                        )}
-                        <div>
-                          <p className='text-sm font-medium text-gray-900'>
-                            {p.nickname || p.name || '사용자'}
-                          </p>
-                          {/* 역할(HOST/PARTICIPANT) 표시 */}
-                          {p.role && (
-                            <p className='text-xs text-gray-500'>{p.role}</p>
-                          )}
-                        </div>
-                      </div>
-                      {/* 상태(ONLINE/STUDYING/BREAK/OFFLINE) 표시 (색상 배지) */}
-                      {(() => {
-                        const status = p.status || 'OFFLINE';
-                        const badge = {
-                          ONLINE: 'bg-green-50 text-green-700 border-green-200',
-                          STUDYING: 'bg-blue-50 text-blue-700 border-blue-200',
-                          BREAK:
-                            'bg-yellow-50 text-yellow-700 border-yellow-200',
-                          OFFLINE: 'bg-gray-200 text-gray-600 border-gray-300',
-                        };
-                        const dot = {
-                          ONLINE: 'bg-green-500',
-                          STUDYING: 'bg-blue-500',
-                          BREAK: 'bg-yellow-500',
-                          OFFLINE: 'bg-gray-400',
-                        };
-                        const badgeCls = `inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full border ${
-                          badge[status] || badge.OFFLINE
-                        }`;
-                        const dotCls = `w-2 h-2 rounded-full mr-1 ${
-                          dot[status] || dot.OFFLINE
-                        }`;
-                        return (
-                          <span className={badgeCls}>
-                            <span className={dotCls} />
-                            {status}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <ParticipantsList participants={cachedParticipants} />
           </div>
 
           {/* 버튼 영역: 호스트는 버튼 숨김, 참여자는 "참여하기" 비활성화 */}
-          {!isHost && (
-            <div className='space-y-3'>
-              <button
-                type='button'
-                className='btn-primary w-full disabled:opacity-60'
-                disabled={joining || isFull || isMemberNonHost}
-                onClick={handleJoin}>
-                {joining
-                  ? '참여 중...'
-                  : isFull
-                  ? '정원이 가득찼어요'
-                  : isMemberNonHost
-                  ? '이미 참여 중'
-                  : '참여하기'}
-              </button>
-              <button
-                type='button'
-                className='btn-secondary w-full disabled:opacity-60'
-                disabled={leaving || !isMemberNonHost}
-                onClick={handleLeave}>
-                {leaving ? '나가는 중...' : '나가기'}
-              </button>
-            </div>
-          )}
-          {/* 채팅 패널: 항상 참여자 목록 하단에 위치 (비참여자는 차단) */}
+          <RoomActions
+            isHost={isHost}
+            isFull={isFull}
+            isMemberNonHost={isMemberNonHost}
+            joining={joining}
+            leaving={leaving}
+            onJoin={handleJoin}
+            onLeave={handleLeave}
+          />
+          {/* 채팅 패널: 항상 유지하여 구독이 끊기지 않도록 함(비참여자는 오버레이 안내) */}
           <div className='mt-6 md:col-span-2'>
-            {isParticipant ? (
-              <>
-                <button
-                  type='button'
-                  className='btn-secondary'
-                  onClick={() => setChatOpen((v) => !v)}>
-                  {chatOpen ? '채팅 닫기' : '채팅 열기'}
-                </button>
-                {chatOpen && (
-                  <div className='h-[420px] mt-3'>
-                    <MessageList
-                      roomId={roomId}
-                      open={chatOpen}
-                    />
+            <button
+              type='button'
+              className='btn-secondary'
+              onClick={() => setChatOpen((v) => !v)}>
+              {chatOpen ? '채팅 닫기' : '채팅 열기'}
+            </button>
+            {chatOpen && (
+              <div className='relative h-[420px] mt-3'>
+                {!isParticipant && (
+                  <div className='absolute inset-0 z-10 flex items-center justify-center bg-white/70 text-sm text-gray-700 rounded-lg border'>
+                    채팅은 방에 참여한 사용자만 이용할 수 있어요. 먼저
+                    참여하기를 눌러주세요.
                   </div>
                 )}
-              </>
-            ) : (
-              <div className='p-4 border rounded bg-gray-50 text-sm text-gray-600'>
-                채팅은 방에 참여한 사용자만 이용할 수 있어요. 먼저 참여하기를
-                눌러주세요.
+                <MessageList
+                  roomId={roomId}
+                  open={chatOpen}
+                />
               </div>
             )}
           </div>
           <div className='md:col-span-1 space-y-3'>
             {/* 나의 상태 토글: 참여자만 노출 */}
             {isParticipant && (
-              <div className='card p-3'>
-                <p className='text-sm font-medium text-gray-900'>나의 상태</p>
-                <div className='mt-2 flex flex-wrap gap-2'>
-                  {['ONLINE', 'STUDYING', 'BREAK'].map((s) => (
-                    <button
-                      key={s}
-                      type='button'
-                      className={`px-3 py-1 rounded-full border text-xs ${
-                        myParticipant?.status === s
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      } disabled:opacity-60`}
-                      disabled={updatingPresence}
-                      onClick={() => handleChangeMyStatus(s)}>
-                      {s}
-                    </button>
-                  ))}
-                </div>
-                <p className='mt-2 text-[11px] text-gray-500'>
-                  탭이 활성화된 동안 15초 간격으로 하트비트를 전송합니다.
-                </p>
-              </div>
+              <StatusToggle
+                current={myParticipant?.status}
+                disabled={updatingPresence}
+                onChange={handleChangeMyStatus}
+              />
             )}
           </div>
         </div>

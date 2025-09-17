@@ -257,19 +257,14 @@ export const subscribe = (destination, handler, headers = {}) => {
     }
   }
 
-  // 4) 구독 해제 함수: 이 핸들러만 제거하고, 모두 비면 실제 구독을 해제
+  // 4) 구독 해제 함수: 이 핸들러만 제거합니다.
+  //    - 모두 비어도 STOMP 실제 구독은 유지하여 불필요한 UNSUBSCRIBE/SUBSCRIBE를 방지합니다.
+  //    - 재연결/재사용 시 같은 구독을 계속 활용합니다.
   return () => {
     const current = subscriptions.get(destination);
     if (!current) return;
     current.handlers.delete(handler);
-    if (current.handlers.size === 0) {
-      try {
-        current.subscription?.unsubscribe?.();
-      } catch {
-        /* noop */
-      }
-      subscriptions.delete(destination);
-    }
+    // keep-alive: 핸들러가 0개여도 subscription은 유지합니다.
   };
 };
 
