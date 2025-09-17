@@ -65,7 +65,10 @@ const AppLayout = () => {
 
         <AppFooter />
         {showAI && <AIAssistantPanel />}
-        <AIAssistantFab onClick={() => setShowAI((v) => !v)} />
+        <AIAssistantFab
+          onClick={() => setShowAI((v) => !v)}
+          hidden={showAI}
+        />
       </div>
     </ToastProvider>
   );
