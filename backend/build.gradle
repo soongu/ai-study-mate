@@ -47,7 +47,16 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 	
 	// Spring AI (Google AI via OpenAI compatible API)
-	implementation "org.springframework.ai:spring-ai-openai-spring-boot-starter:${springAiVersion}"
+	implementation("org.springframework.ai:spring-ai-openai-spring-boot-starter:${springAiVersion}") {
+		// Swagger 구버전/중복 충돌 방지를 위해 spring-ai에서 끌고오는 Swagger 관련 의존성 제외
+		exclude group: 'io.swagger.core.v3', module: 'swagger-annotations'
+		exclude group: 'io.swagger', module: 'swagger-annotations'
+		exclude group: 'io.swagger', module: 'swagger-models'
+		exclude group: 'com.github.victools', module: 'jsonschema-module-swagger-2'
+	}
+
+	// Spring Boot 3용 OpenAPI UI 
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0'
 	
 	// JWT
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'

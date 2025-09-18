@@ -62,6 +62,12 @@ public class SecurityConfig {
             // 엔드포인트 권한 정책: 퍼블릭 → 허용, 나머지 → 인증 필요
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers("/health", "/", "/h2-console/**").permitAll()
+                // OpenAPI(Swagger UI) 공개 경로
+                .requestMatchers(
+                    "/v3/api-docs/**",
+                    "/swagger-ui.html",
+                    "/swagger-ui/**"
+                ).permitAll()
                 .requestMatchers("/api/auth/**", "/oauth2/**", "/login/oauth2/**").permitAll()
                 .anyRequest().authenticated()
             )
