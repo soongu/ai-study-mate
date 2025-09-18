@@ -7,6 +7,60 @@ import { useAuthStore } from '../../stores/authStore';
 // react-markdown: 문자열을 안전하게 마크다운으로 렌더링(GFM 플러그인과 함께 사용)
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+// 코드블록 문법 하이라이트용 rehype 플러그인과 highlight.js 테마
+import rehypeHighlight from 'rehype-highlight';
+import 'highlight.js/styles/github.css';
+
+// 코드블록(<pre>)을 감싸는 전용 컴포넌트: 언어 라벨과 복사 버튼을 제공합니다.
+const CodeBlock = (props) => {
+  const preRef = useRef(null);
+  const [copied, setCopied] = useState(false);
+
+  // language-xxx 형태의 클래스로부터 언어 라벨을 추출합니다.
+  const child = React.Children.toArray(props.children)[0];
+  const codeClass = child && child.props ? child.props.className || '' : '';
+  const langMatch = /language-([a-z0-9+#-]+)/i.exec(codeClass || '');
+  const langLabel =
+    langMatch && langMatch[1] ? String(langMatch[1]).toUpperCase() : '';
+
+  const handleCopy = async () => {
+    try {
+      const text = preRef.current ? preRef.current.innerText : '';
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // ignore
+    }
+  };
+
+  return (
+    <div className='relative group'>
+      {langLabel && (
+        <span className='absolute left-2 top-2 text-[10px] px-1.5 py-0.5 rounded bg-gray-800 text-gray-100 opacity-80'>
+          {langLabel}
+        </span>
+      )}
+      <button
+        type='button'
+        onClick={handleCopy}
+        className='absolute right-2 top-2 text-[10px] px-2 py-0.5 rounded bg-gray-200 hover:bg-gray-300 text-gray-800'
+        aria-label='코드 복사'
+        title={copied ? '복사됨!' : '복사'}>
+        {copied ? '복사됨' : '복사'}
+      </button>
+      <pre
+        ref={preRef}
+        {...props}
+        className={
+          'bg-gray-900 text-gray-100 text-xs rounded p-2 overflow-auto ' +
+          (props.className || '')
+        }
+      />
+    </div>
+  );
+};
 
 const AIAssistantPanel = () => {
   // 패널의 실제 DOM 요소에 접근하기 위한 참조입니다.
@@ -337,6 +391,8 @@ const AIAssistantPanel = () => {
                             <ReactMarkdown
                               // GFM(표, 체크박스 목록, 테이블, 취소선 등) 지원
                               remarkPlugins={[remarkGfm]}
+                              // 코드블록 자동 하이라이팅(rehype-highlight)
+                              rehypePlugins={[rehypeHighlight]}
                               // 특정 요소의 렌더 방식을 커스터마이징합니다.
                               // - code: 인라인 코드와 코드펜스를 구분하여 각각 스타일 적용
                               // - a: 외부 링크는 새 탭으로 열고 기본 밑줄/색상을 지정
@@ -347,23 +403,29 @@ const AIAssistantPanel = () => {
                                   children,
                                   ...props
                                 }) {
-                                  if (inline) {
+                                  // 한 줄만 있는 코드펜스는 블록 대신 인라인 코드로 렌더링합니다.
+                                  const text = String(children || '').replace(
+                                    /\n$/,
+                                    ''
+                                  );
+                                  const isSingleLine = !text.includes('\n');
+                                  if (inline || isSingleLine) {
                                     return (
                                       <code
                                         className='px-1 py-[1px] rounded bg-gray-200 text-gray-800 font-mono text-[12px]'
                                         {...props}>
-                                        {children}
+                                        {text}
                                       </code>
                                     );
                                   }
                                   return (
-                                    <pre className='bg-gray-900 text-gray-100 text-xs rounded p-2 overflow-auto'>
+                                    <CodeBlock>
                                       <code
                                         className={className}
                                         {...props}>
                                         {children}
                                       </code>
-                                    </pre>
+                                    </CodeBlock>
                                   );
                                 },
                                 a({ href, children, ...props }) {
