@@ -6,10 +6,12 @@ import {
   addSSEListener,
   removeSSEListener,
 } from '../../services/notificationService.js';
+import useHistoryStore from '../../stores/historyStore.js';
 
 const AppHeader = () => {
   const navigate = useNavigate();
   const { isAuthenticated, user, logout } = useAuthStore();
+  const { openPanel } = useHistoryStore();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
@@ -108,6 +110,13 @@ const AppHeader = () => {
             className='hidden sm:inline text-gray-600 hover:text-gray-900 rounded-md px-3 py-2 transition-colors hover:bg-gray-100'>
             스터디룸
           </Link>
+          <button
+            type='button'
+            onClick={openPanel}
+            className='hidden sm:inline text-gray-600 hover:text-gray-900 rounded-md px-3 py-2 transition-colors hover:bg-gray-100'
+            aria-label='히스토리 열기'>
+            히스토리
+          </button>
 
           {/* 🔔 SSE 연결 상태 표시 (인증된 사용자만) */}
           {isAuthenticated && (

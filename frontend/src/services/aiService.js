@@ -39,13 +39,10 @@ export const AIService = {
     }
   },
 
-  // 개념 설명 요청
-  async explainConcept({ concept, level }) {
+  // 최근 히스토리 조회
+  async getHistory({ limit = 10 } = {}) {
     try {
-      const res = await apiClient.post('/ai/concept', {
-        concept,
-        level: level ?? 'beginner',
-      });
+      const res = await apiClient.get('/ai/history', { params: { limit } });
       return res.data;
     } catch (err) {
       throw normalizeError(err);
