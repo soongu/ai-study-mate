@@ -11,6 +11,7 @@ import {
   disconnectSSE,
   requestNotificationPermission,
 } from '../services/notificationService.js';
+import HistoryPanel from '../components/ai/history/HistoryPanel.jsx';
 
 const AppLayout = () => {
   const { isAuthenticated, user, fetchMe } = useAuthStore();
@@ -69,6 +70,8 @@ const AppLayout = () => {
           onClick={() => setShowAI((v) => !v)}
           hidden={showAI}
         />
+        {/* 전역 히스토리 패널 마운트 */}
+        <HistoryPanel />
       </div>
     </ToastProvider>
   );

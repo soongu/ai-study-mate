@@ -18,6 +18,7 @@ import {
   ArrowsPointingOutIcon,
   ArrowsPointingInIcon,
 } from '@heroicons/react/24/outline';
+import useHistoryStore from '../../stores/historyStore.js';
 
 // 코드블록(<pre>)을 감싸는 전용 컴포넌트: 언어 라벨과 복사 버튼을 제공합니다.
 const CodeBlock = (props) => {
@@ -163,6 +164,7 @@ const AIAssistantPanel = () => {
     estimatedTokens,
     resetConversation,
   } = useAIStore();
+  const { openPanel } = useHistoryStore();
   const { user } = useAuthStore();
   const userAvatarUrl =
     (user &&
@@ -227,6 +229,14 @@ const AIAssistantPanel = () => {
           onMouseDown={onMouseDown}>
           <div className='text-sm font-semibold'>AI Assistant</div>
           <div className='ml-auto flex items-center gap-1'>
+            {/* 히스토리 열기 버튼 */}
+            <button
+              className='p-1 rounded hover:bg-gray-100'
+              onClick={openPanel}
+              aria-label='히스토리 열기'
+              title='히스토리 열기'>
+              기록
+            </button>
             {/* 현재 대화 토큰 대략치를 보여주는 배지입니다. */}
             <span
               className='text-[10px] px-1.5 py-0.5 rounded border bg-gray-50 text-gray-700'
