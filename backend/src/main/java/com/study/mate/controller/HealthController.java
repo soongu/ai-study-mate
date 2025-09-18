@@ -20,12 +20,5 @@ public class HealthController {
         return response;
     }
 
-    @GetMapping("/")
-    public Map<String, Object> root() {
-        Map<String, Object> response = new HashMap<>();
-        response.put("message", "AI Study Mate API Server");
-        response.put("status", "running");
-        response.put("timestamp", LocalDateTime.now());
-        return response;
-    }
+   
 }
