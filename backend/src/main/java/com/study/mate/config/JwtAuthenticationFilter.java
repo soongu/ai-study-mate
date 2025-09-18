@@ -8,6 +8,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.lang.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -19,6 +21,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 
 /**
@@ -40,6 +43,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final CookieProperties cookieProperties;
+    private final Environment environment;
+    
+    @Value("${swagger.test-token:}")
+    private String devTestToken;
 
     /**
      * 요청에서 액세스 토큰을 찾아 검증 후, 인증 컨텍스트를 구성합니다.
@@ -55,20 +62,34 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = resolveToken(request);
 
         // 토큰이 존재하고 유효하며, 아직 인증 컨텍스트가 비어있을 때만 설정합니다.
-        if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token)
-                && SecurityContextHolder.getContext().getAuthentication() == null) {
-            Claims claims = jwtTokenProvider.getClaims(token);
-            String subject = claims.getSubject(); // 일반적으로 사용자 식별자
+        if (StringUtils.hasText(token) && SecurityContextHolder.getContext().getAuthentication() == null) {
+            
+            // 개발 환경에서 테스트 토큰 허용
+            if (isDevTestToken(token)) {
+                Authentication authentication = new UsernamePasswordAuthenticationToken(
+                        "dev-test-user",
+                        null,
+                        Collections.emptyList()
+                );
+                ((UsernamePasswordAuthenticationToken) authentication)
+                        .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
+            // 실제 JWT 토큰 검증
+            else if (jwtTokenProvider.validateToken(token)) {
+                Claims claims = jwtTokenProvider.getClaims(token);
+                String subject = claims.getSubject(); // 일반적으로 사용자 식별자
 
-            Authentication authentication = new UsernamePasswordAuthenticationToken(
-                    subject,
-                    null,
-                    Collections.emptyList()
-            );
-            ((UsernamePasswordAuthenticationToken) authentication)
-                    .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                Authentication authentication = new UsernamePasswordAuthenticationToken(
+                        subject,
+                        null,
+                        Collections.emptyList()
+                );
+                ((UsernamePasswordAuthenticationToken) authentication)
+                        .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
         }
 
         filterChain.doFilter(request, response);
@@ -99,6 +120,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         return null;
+    }
+    
+    /**
+     * 개발 환경에서 테스트 토큰인지 확인합니다.
+     * 
+     * @param token 검증할 토큰
+     * @return 개발용 테스트 토큰 여부
+     */
+    private boolean isDevTestToken(String token) {
+        // dev 프로필에서만 테스트 토큰 허용
+        if (!Arrays.asList(environment.getActiveProfiles()).contains("dev")) {
+            return false;
+        }
+        
+        // 설정된 테스트 토큰과 일치하는지 확인
+        return StringUtils.hasText(devTestToken) && devTestToken.equals(token);
     }
 }
 

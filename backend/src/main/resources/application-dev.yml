@@ -63,3 +63,10 @@ cookie:
 app:
   oauth2-success-redirect-url: http://localhost:3000/app
   oauth2-failure-redirect-url: http://localhost:3000?from=oauth2
+
+# Swagger UI 개발용 설정
+swagger:
+  # 개발 환경에서 AI API 인증 없이 테스트 가능 (보안상 개발용으로만 사용)
+  dev-mode: true
+  # 개발용 테스트 토큰 (실제 운영에서는 사용하지 않음)
+  test-token: 'dev-test-token-12345'
