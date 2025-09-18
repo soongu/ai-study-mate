@@ -10,6 +10,14 @@ import remarkGfm from 'remark-gfm';
 // 코드블록 문법 하이라이트용 rehype 플러그인과 highlight.js 테마
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github.css';
+// Tailwind 공식 아이콘 세트(Heroicons)
+import {
+  ArrowPathIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  ArrowsPointingOutIcon,
+  ArrowsPointingInIcon,
+} from '@heroicons/react/24/outline';
 
 // 코드블록(<pre>)을 감싸는 전용 컴포넌트: 언어 라벨과 복사 버튼을 제공합니다.
 const CodeBlock = (props) => {
@@ -145,7 +153,16 @@ const AIAssistantPanel = () => {
   };
 
   // Zustand 상태와 액션 가져오기
-  const { messages, isLoading, error, sendQuestion } = useAIStore();
+  // - estimatedTokens: 현재 대화의 대략 토큰 수(길이 추정). 너무 길면 비용/제한에 영향을 줍니다.
+  // - resetConversation: 대화 초기화(히스토리/에러/토큰 수 초기화)
+  const {
+    messages,
+    isLoading,
+    error,
+    sendQuestion,
+    estimatedTokens,
+    resetConversation,
+  } = useAIStore();
   const { user } = useAuthStore();
   const userAvatarUrl =
     (user &&
@@ -210,6 +227,20 @@ const AIAssistantPanel = () => {
           onMouseDown={onMouseDown}>
           <div className='text-sm font-semibold'>AI Assistant</div>
           <div className='ml-auto flex items-center gap-1'>
+            {/* 현재 대화 토큰 대략치를 보여주는 배지입니다. */}
+            <span
+              className='text-[10px] px-1.5 py-0.5 rounded border bg-gray-50 text-gray-700'
+              title='현재 대화의 대략적인 토큰 사용량'>
+              ~{Number(estimatedTokens || 0)} tokens
+            </span>
+            {/* 대화 리셋 버튼: 누르면 히스토리/에러/토큰 수가 초기화됩니다. */}
+            <button
+              className='p-1 rounded hover:bg-gray-100'
+              onClick={resetConversation}
+              aria-label='대화 초기화'
+              title='대화 초기화'>
+              <ArrowPathIcon className='w-4 h-4' />
+            </button>
             {/* 접기/열기 토글 (최대화 시 숨김) */}
             {!isMaximized && (
               <button
@@ -218,35 +249,9 @@ const AIAssistantPanel = () => {
                 aria-label={isMinimized ? '패널 열기' : '패널 접기'}
                 title={isMinimized ? '열기' : '접기'}>
                 {isMinimized ? (
-                  <svg
-                    width='16'
-                    height='16'
-                    viewBox='0 0 20 20'
-                    fill='none'
-                    xmlns='http://www.w3.org/2000/svg'>
-                    <path
-                      d='M6 12l4-4 4 4'
-                      stroke='currentColor'
-                      strokeWidth='2'
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                    />
-                  </svg>
+                  <ChevronDownIcon className='w-4 h-4' />
                 ) : (
-                  <svg
-                    width='16'
-                    height='16'
-                    viewBox='0 0 20 20'
-                    fill='none'
-                    xmlns='http://www.w3.org/2000/svg'>
-                    <path
-                      d='M6 8l4 4 4-4'
-                      stroke='currentColor'
-                      strokeWidth='2'
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                    />
-                  </svg>
+                  <ChevronUpIcon className='w-4 h-4' />
                 )}
               </button>
             )}
@@ -257,77 +262,9 @@ const AIAssistantPanel = () => {
               aria-label={isMaximized ? '패널 축소' : '패널 최대화'}
               title={isMaximized ? '축소' : '최대화'}>
               {isMaximized ? (
-                <svg
-                  width='16'
-                  height='16'
-                  viewBox='0 0 20 20'
-                  fill='none'
-                  xmlns='http://www.w3.org/2000/svg'>
-                  <path
-                    d='M7 3h-4v4'
-                    stroke='currentColor'
-                    strokeWidth='2'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                  <path
-                    d='M3 7l5-5'
-                    stroke='currentColor'
-                    strokeWidth='2'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                  <path
-                    d='M13 17h4v-4'
-                    stroke='currentColor'
-                    strokeWidth='2'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                  <path
-                    d='M17 13l-5 5'
-                    stroke='currentColor'
-                    strokeWidth='2'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                </svg>
+                <ArrowsPointingInIcon className='w-4 h-4' />
               ) : (
-                <svg
-                  width='16'
-                  height='16'
-                  viewBox='0 0 20 20'
-                  fill='none'
-                  xmlns='http://www.w3.org/2000/svg'>
-                  <path
-                    d='M3 9V3h6'
-                    stroke='currentColor'
-                    strokeWidth='2'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                  <path
-                    d='M11 3l-8 8'
-                    stroke='currentColor'
-                    strokeWidth='2'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                  <path
-                    d='M17 11v6h-6'
-                    stroke='currentColor'
-                    strokeWidth='2'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                  <path
-                    d='M9 17l8-8'
-                    stroke='currentColor'
-                    strokeWidth='2'
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                  />
-                </svg>
+                <ArrowsPointingOutIcon className='w-4 h-4' />
               )}
             </button>
           </div>
