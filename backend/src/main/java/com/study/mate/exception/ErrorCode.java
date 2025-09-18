@@ -17,6 +17,7 @@ public enum ErrorCode {
     ROOM_FULL(HttpStatus.BAD_REQUEST, "room is full"),
     ALREADY_PARTICIPANT(HttpStatus.CONFLICT, "already participant"),
     HOST_CANNOT_LEAVE(HttpStatus.BAD_REQUEST, "host cannot leave"),
+    RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "rate limit exceeded"),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "internal error");
 
     private final HttpStatus status;

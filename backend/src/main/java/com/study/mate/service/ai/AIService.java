@@ -100,6 +100,7 @@ public class AIService {
     // 2) 상용 수준의 시스템 프롬프트로 LLM 호출(JSON 스키마 강제).
     // 3) JSON 파싱을 시도하고, 실패 시 텍스트 전체를 요약으로 폴백합니다.
     public CodeReviewResponse reviewCode(final CodeReviewRequest req) {
+        String response = null;
         try {
             // 0) 입력값 검증: 코드가 비어 있으면 즉시 실패
             if (req == null || req.code() == null || req.code().isBlank()) {
@@ -119,7 +120,7 @@ public class AIService {
             userContent.append("[코드]\n").append(req.code());
 
             // 2) 모델 호출 (언어별 가이드 + JSON 스키마 강제 프롬프트 사용)
-            String response = chatClient
+            response = chatClient
                     .prompt()
                     .system(s -> s.text(buildSystemPrompt(language)))
                     .user(u -> u.text(userContent.toString()))
@@ -146,15 +147,14 @@ public class AIService {
                 String prompt = (req.context() == null || req.context().isBlank())
                         ? ("[코드]\n" + req.code())
                         : ("[컨텍스트]\n" + req.context() + "\n\n[코드]\n" + req.code());
-                // 간단 추정치(요청 길이 기반; 응답은 파싱 전이라 제외)
-                int tokens = TokenEstimator.estimate(prompt);
+                // 요청+응답 기반 토큰 추정 저장
+                int tokens = TokenEstimator.estimate((prompt == null ? "" : prompt) + '\n' + (response == null ? "" : response));
                 conversationService.saveConversation(new SaveConversationRequest(
                         providerId,
                         null,
                         "REVIEW",
                         prompt,
-                        // 응답 본문은 위 try 블록의 변수에 있으나 finally에서는 스코프 밖이므로 생략/빈값 저장 가능
-                        "",
+                        (response == null ? "" : response),
                         tokens,
                         "gemini-2.0-flash"
                 ));
