@@ -13,8 +13,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Service
 public class RateLimiterService {
 
-    private static final int REQUESTS_PER_MINUTE = 3;
-    private static final int REQUESTS_PER_DAY = 10;
+    private static final int REQUESTS_PER_MINUTE = 10;
+    private static final int REQUESTS_PER_DAY = 100;
     private static final int TOKENS_PER_DAY = 100000;
 
     private final Map<String, MinuteWindow> minuteWindows = new ConcurrentHashMap<>();

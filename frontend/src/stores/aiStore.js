@@ -75,6 +75,7 @@ export const useAIStore = create((set, get) => ({
   error: null,
   maxHistory: DEFAULT_MAX_HISTORY,
   estimatedTokens: 0,
+  rateLimitedUntil: 0, // 타임스탬프(ms). 현재 시간이 이 값보다 작으면 레이트 리밋 상태
 
   // 액션: 메시지 추가
   append: (msg) =>
@@ -92,20 +93,20 @@ export const useAIStore = create((set, get) => ({
   // 액션: 전체 초기화
   clear: () => set({ messages: [], error: null, estimatedTokens: 0 }),
   resetConversation: () =>
-    set({ messages: [], error: null, estimatedTokens: 0 }),
+    set({ messages: [], error: null, estimatedTokens: 0, rateLimitedUntil: 0 }),
   setMaxHistory: (n) =>
     set({ maxHistory: Number.isFinite(n) && n > 4 ? n : DEFAULT_MAX_HISTORY }),
+  clearRateLimit: () => set({ rateLimitedUntil: 0 }),
 
   // 질문 전송: 프론트-백엔드 연동 준비
-  // 흐름:
-  // 1) 사용자의 질문을 즉시 messages 에 추가해 UI 피드백을 줍니다.
-  // 2) 백엔드로 질문을 전송합니다.
-  // 3) 응답을 assistant 메시지로 추가합니다.
-  // 4) 실패하면 error 상태를 세팅합니다.
-  //
-  // 구현 팁:
-  // - set의 함수형 업데이트를 사용해 레이스 컨디션을 줄입니다.
   sendQuestion: async (question) => {
+    const now = Date.now();
+    const { rateLimitedUntil } = get();
+    if (rateLimitedUntil && now < rateLimitedUntil) {
+      // 레이트 리밋 중엔 전송을 무시
+      return;
+    }
+
     const userMsg = {
       id: `user-${Date.now()}`,
       role: 'user',
@@ -143,7 +144,17 @@ export const useAIStore = create((set, get) => ({
         };
       });
     } catch (err) {
-      set({ error: err?.message || 'AI 요청 중 오류가 발생했습니다.' }); // 사용자 친화적 메시지
+      // 레이트 리밋(429)인 경우 사용자에게 명확한 메시지와 60초 쿨다운을 제공합니다.
+      if (err?.status === 429) {
+        const cooldownMs = 60 * 1000;
+        set({
+          error:
+            '요청이 일시적으로 많아요. 잠시 후 다시 시도해주세요. (레이트 제한)',
+          rateLimitedUntil: Date.now() + cooldownMs,
+        });
+      } else {
+        set({ error: err?.message || 'AI 요청 중 오류가 발생했습니다.' });
+      }
     } finally {
       set({ isLoading: false });
     }
