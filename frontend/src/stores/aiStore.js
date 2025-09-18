@@ -50,7 +50,26 @@ const calcEstimatedTokens = (messages) => {
   }
 };
 
-export const useAIStore = create((set) => ({
+// 최근 메시지들을 간단 포맷으로 이어붙여 컨텍스트 문자열을 생성합니다.
+// - 형식: "User: ..." / "AI: ..." 를 줄바꿈으로 연결
+// - 너무 길어지지 않도록 최대 글자수를 제한합니다.
+const buildContextFromMessages = (messages, maxChars = 2000) => {
+  if (!Array.isArray(messages) || messages.length === 0) return '';
+  const lines = [];
+  for (const m of messages) {
+    if (!m || !m.content) continue;
+    if (m.role === 'system') continue;
+    const prefix = m.role === 'assistant' ? 'AI' : 'User';
+    lines.push(`${prefix}: ${String(m.content).replace(/\s+/g, ' ').trim()}`);
+  }
+  let context = lines.join('\n');
+  if (context.length > maxChars) {
+    context = context.slice(context.length - maxChars);
+  }
+  return context;
+};
+
+export const useAIStore = create((set, get) => ({
   messages: [],
   isLoading: false,
   error: null,
@@ -106,7 +125,10 @@ export const useAIStore = create((set) => ({
       };
     });
     try {
-      const res = await AIService.askQuestion({ question }); // API 호출은 서비스 레이어로 분리
+      // 현재까지의 대화 내역을 간단 컨텍스트로 만들어 함께 전송합니다.
+      const { messages: currentMsgs, maxHistory } = get();
+      const context = buildContextFromMessages(currentMsgs.slice(-maxHistory));
+      const res = await AIService.askQuestion({ question, context }); // API 호출은 서비스 레이어로 분리
       const content = res?.data?.content || res?.content || JSON.stringify(res);
       const aiMsg = { id: `ai-${Date.now()}`, role: 'assistant', content };
       // 2) AI 응답 메시지 추가(+슬라이딩 윈도우)

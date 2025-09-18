@@ -306,6 +306,13 @@ public class AIService {
     // 간단 Q&A (한글 시스템 프롬프트 간소화)
     public ChatResponse answerQuestion(final QuestionRequest req) {
         try {
+            // 사용자 질문과 (선택) 컨텍스트를 합쳐 보다 정확한 답변을 유도합니다.
+            StringBuilder userMsg = new StringBuilder();
+            if (req.context() != null && !req.context().isBlank()) {
+                userMsg.append("[대화 문맥]\n").append(req.context()).append("\n\n");
+            }
+            userMsg.append("[질문]\n").append(req.question());
+
             String response = chatClient
                     .prompt()
                     .system(s -> s.text("""
@@ -325,7 +332,7 @@ public class AIService {
                       - 한국어 고정, 초보자도 이해할 수 있게 쉬운 표현 사용
                       - 필요하면 번호/목록으로 정리하여 가독성 향상
                       """))
-                    .user(u -> u.text(req.question()))
+                    .user(u -> u.text(userMsg.toString()))
                     .call()
                     .content();
             return new ChatResponse(response);
