@@ -13,7 +13,7 @@ spring:
         options:
           model: ${GEMINI_MODEL}
           temperature: 0.2
-          max-tokens: 1024
+          max-tokens: 2048
     retry:
       on-client-errors: true
       on-http-codes: 429,503
