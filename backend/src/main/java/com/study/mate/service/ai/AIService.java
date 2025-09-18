@@ -10,14 +10,18 @@ import java.util.regex.Pattern;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.study.mate.dto.request.ai.CodeReviewRequest;
 import com.study.mate.dto.response.ai.CodeReviewResponse;
 import com.study.mate.dto.request.ai.QuestionRequest;
+import com.study.mate.dto.request.ai.SaveConversationRequest;
 import com.study.mate.dto.request.ai.ConceptRequest;
 import com.study.mate.dto.response.ai.ChatResponse;
 import com.study.mate.exception.BusinessException;
 import com.study.mate.exception.ErrorCode;
+import com.study.mate.util.TokenEstimator;
 
 // AIService 는 Spring AI 의 ChatClient 를 사용해
 // LLM(여기서는 Gemini, OpenAI 호환 엔드포인트)을 호출하는 서비스입니다.
@@ -32,6 +36,7 @@ public class AIService {
 
     // Spring 이 자동 주입하는 ChatClient 입니다.
     private final ChatClient chatClient;
+    private final AIConversationService conversationService;
 
     // JSON 블록 추출(코드펜스/문장 섞인 응답에서도 JSON만 뽑아내기 위함)
     private static final Pattern JSON_BLOCK = Pattern.compile("\\{.*?\\}", Pattern.DOTALL);
@@ -134,6 +139,28 @@ public class AIService {
             throw e;
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "AI 코드 리뷰 중 오류가 발생했습니다.");
+        } finally {
+            // 비즈니스 저장: 실패하더라도 서비스 흐름에 영향 주지 않도록 별도 예외 처리
+            try {
+                String providerId = resolveProviderId();
+                String prompt = (req.context() == null || req.context().isBlank())
+                        ? ("[코드]\n" + req.code())
+                        : ("[컨텍스트]\n" + req.context() + "\n\n[코드]\n" + req.code());
+                // 간단 추정치(요청 길이 기반; 응답은 파싱 전이라 제외)
+                int tokens = TokenEstimator.estimate(prompt);
+                conversationService.saveConversation(new SaveConversationRequest(
+                        providerId,
+                        null,
+                        "REVIEW",
+                        prompt,
+                        // 응답 본문은 위 try 블록의 변수에 있으나 finally에서는 스코프 밖이므로 생략/빈값 저장 가능
+                        "",
+                        tokens,
+                        "gemini-2.0-flash"
+                ));
+            } catch (Exception ignore) {
+                // 저장 실패는 무시합니다.
+            }
         }
     }
 
@@ -335,10 +362,34 @@ public class AIService {
                     .user(u -> u.text(userMsg.toString()))
                     .call()
                     .content();
+            // 저장(사용자 문맥 + 질문/응답)
+            try {
+                String providerId = resolveProviderId();
+                int tokens = TokenEstimator.estimate(userMsg.toString() + "\n\n" + response);
+                conversationService.saveConversation(new com.study.mate.dto.request.ai.SaveConversationRequest(
+                        providerId,
+                        null,
+                        "QA",
+                        userMsg.toString(),
+                        response,
+                        tokens,
+                        "gemini-2.0-flash"
+                ));
+            } catch (Exception ignore) {}
             return new ChatResponse(response);
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "AI 질문 처리 중 오류가 발생했습니다.");
         }
+    }
+
+    // SecurityContext 에서 providerId(subject)를 꺼냅니다.
+    private String resolveProviderId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED, "unauthorized");
+        }
+        Object principal = auth.getPrincipal();
+        return String.valueOf(principal);
     }
 
     // 개념 설명
