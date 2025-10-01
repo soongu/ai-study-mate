@@ -55,7 +55,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(@NonNull StompEndpointRegistry registry) {
         registry
             .addEndpoint("/ws")
-            .setAllowedOriginPatterns("http://localhost:3000", "http://127.0.0.1:3000")
+            .setAllowedOriginPatterns("http://localhost:3000", "http://127.0.0.1:3000","https://gondue.co.kr",
+		    "https://www.gondue.co.kr")
             .addInterceptors(cookieAuthHandshakeInterceptor);
     }
 
