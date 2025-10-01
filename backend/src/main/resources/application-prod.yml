@@ -6,7 +6,7 @@ spring:
     driver-class-name: org.mariadb.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
@@ -20,14 +20,14 @@ spring:
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
             scope: [profile, email]
-            redirect-uri: '{baseUrl}/login/oauth2/code/google'
+            redirect-uri: ${APP_BASE_URL}/login/oauth2/code/google
           kakao:
             client-id: ${KAKAO_CLIENT_ID}
             client-secret: ${KAKAO_CLIENT_SECRET}
             client-authentication-method: client_secret_post
             authorization-grant-type: authorization_code
             scope: [profile_nickname, account_email]
-            redirect-uri: '{baseUrl}/login/oauth2/code/kakao'
+            redirect-uri: ${APP_BASE_URL}/login/oauth2/code/kakao
         provider:
           kakao:
             authorization-uri: https://kauth.kakao.com/oauth/authorize
@@ -36,7 +36,7 @@ spring:
             user-name-attribute: id
 
 server:
-  port: ${PORT:8080}
+  port: ${SERVER_PORT}
 
 logging:
   level:
